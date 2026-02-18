@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visión IT | Detector en Tiempo Real</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- TensorFlow.js and COCO-SSD -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">Visión IT</div>
+            <div id="status" class="status">Cargando inteligencia...</div>
+        </header>
+
+        <div class="main-view">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+
+            <div class="overlay">
+                <div class="counter-badge">
+                    <span id="count-num">0</span> objetos
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div id="labels-container" class="labels">
+                <!-- Labels will appear here -->
+            </div>
+            <button id="toggle-camera" class="btn-primary">Cambiando Cámara...</button>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
