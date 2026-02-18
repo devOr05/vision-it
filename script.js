@@ -46,7 +46,7 @@ let lastSpoken = "";
 let lastSpokenTime = 0;
 
 let classSampleCounts = [0, 0, 0];
-let classThumbnails = [[], [], []]; // Array of Base64 strings per class
+let classThumbnails = [[], [], []];
 
 // Camera Handling
 async function setupCamera() {
@@ -80,7 +80,6 @@ async function setupCamera() {
     }
 }
 
-// Memory & Persistence
 // Memory & Persistence
 async function saveModel() {
     const dataset = classifier.getClassifierDataset();
@@ -156,26 +155,25 @@ function loadModel() {
 
 function updateUIFeedback() {
     classSampleCounts.forEach((count, i) => {
-        sampleCounters[i].innerText = count;
+        if (sampleCounters[i]) sampleCounters[i].innerText = count;
 
-        // Update Galleries
-        galleries[i].innerHTML = '';
-        classThumbnails[i].forEach(src => {
-            const img = document.createElement('img');
-            img.src = src;
-            img.className = 'sample-thumbnail';
-            galleries[i].appendChild(img);
-        });
+        if (galleries[i]) {
+            galleries[i].innerHTML = '';
+            classThumbnails[i].forEach(src => {
+                const img = document.createElement('img');
+                img.src = src;
+                img.className = 'sample-thumbnail';
+                galleries[i].appendChild(img);
+            });
+        }
     });
 }
 
 window.resetClass = (id) => {
-    if (confirm(`¿Reiniciar aprendizaje para ${document.getElementById(`name-class-${id}`).value}?`)) {
+    if (confirm(`¿Reiniciar aprendizaje para esta clase?`)) {
         try {
             classifier.clearClass(id);
-        } catch (e) {
-            // If class doesn't exist yet, it's fine
-        }
+        } catch (e) { }
         classSampleCounts[id] = 0;
         classThumbnails[id] = [];
         updateUIFeedback();
@@ -247,69 +245,18 @@ async function detect() {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (isTrainingMode && classifier.getNumClasses() > 0) {
-        const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
-        const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
-        const name2 = document.getElementById('name-class-2').value || 'Fondo';
-        const classes = [name0, name1, name2];
+    // --- SHARED DETECTION VALUES ---
+    let cocoDetectedCount = 0;
+    const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
+    const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
+    const name2 = document.getElementById('name-class-2').value || 'Fondo';
+    const classes = [name0, name1, name2];
 
-        if (isCountingMode) {
-            drawGrid(ctx);
-            const cols = 4;
-            const rows = 4;
-            const tw = video.videoWidth / cols;
-            const th = video.videoHeight / rows;
-            let totalCount = 0;
-
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    const crop = tf.browser.fromPixels(video).slice([y * th, x * tw, 0], [th, tw, 3]);
-                    const activation = featureExtractor.infer(crop, 'conv_preds');
-                    const result = await classifier.predictClass(activation);
-
-                    if (result.label !== 2 && result.confidences[result.label] > confidenceThreshold) {
-                        totalCount++;
-                        ctx.fillStyle = 'rgba(45, 212, 191, 0.5)';
-                        ctx.beginPath();
-                        ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 12, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        // Debug text on tile
-                        ctx.fillStyle = "#fff";
-                        ctx.font = "10px sans-serif";
-                        ctx.fillText(classes[result.label], (x * tw) + 5, (y * th) + 15);
-                    }
-                    crop.dispose();
-                }
-            }
-            countNum.innerText = totalCount;
-            customLabel.innerText = `${name0}/${name1} Detectados: ${totalCount}`;
-            customPredBox.classList.remove('hidden');
-        } else {
-            const img = tf.browser.fromPixels(video);
-            const activation = featureExtractor.infer(img, 'conv_preds');
-            try {
-                const result = await classifier.predictClass(activation);
-                const label = classes[result.label];
-                const prob = result.confidences[result.label];
-
-                if (prob > confidenceThreshold) {
-                    customLabel.innerText = `${label} (${Math.round(prob * 100)}%)`;
-                    customPredBox.classList.remove('hidden');
-                    ctx.strokeStyle = '#2dd4bf';
-                    ctx.lineWidth = 8;
-                    ctx.strokeRect(canvas.width * 0.05, canvas.height * 0.05, canvas.width * 0.9, canvas.height * 0.9);
-                    if (label !== name2) speak(`Identificado: ${label}`);
-                } else {
-                    customLabel.innerText = 'Analizando superficie...';
-                }
-            } catch (e) { }
-            img.dispose();
-        }
-    } else {
+    // 1. RUN STANDARD COCO-SSD (Always if not in exclusive counting mode)
+    if (!isCountingMode || !isTrainingMode) {
         const predictions = await model.detect(video);
         const filtered = predictions.filter(p => p.score >= confidenceThreshold);
-        countNum.innerText = filtered.length;
+        cocoDetectedCount = filtered.length;
         labelsContainer.innerHTML = '';
 
         filtered.forEach(prediction => {
@@ -323,39 +270,105 @@ async function detect() {
             tag.innerHTML = `<strong>${prediction.class}</strong><span>${Math.round(prediction.score * 100)}%</span>`;
             labelsContainer.appendChild(tag);
         });
+    }
 
-        if (filtered.length > 0) {
-            const sumNames = [...new Set(filtered.map(f => f.class))].join(' y ');
-            speak(`${filtered.length} objetos: ${sumNames}`);
+    // 2. RUN CUSTOM IA (If trained)
+    if (isTrainingMode && classifier.getNumClasses() > 0) {
+        if (isCountingMode) {
+            // --- TILED COUNTING MODE ---
+            drawGrid(ctx);
+            const cols = 4;
+            const rows = 4;
+            const tw = video.videoWidth / cols;
+            const th = video.videoHeight / rows;
+            let totalCount = 0;
+
+            const videoTensor = tf.browser.fromPixels(video);
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const crop = videoTensor.slice([y * th, x * tw, 0], [th, tw, 3]);
+                    const resizedCrop = tf.image.resizeBilinear(crop, [224, 224]);
+                    const activation = featureExtractor.infer(resizedCrop, 'conv_preds');
+                    const result = await classifier.predictClass(activation);
+
+                    if (result.label !== "2" && result.confidences[result.label] > confidenceThreshold) {
+                        totalCount++;
+                        ctx.fillStyle = 'rgba(45, 212, 191, 0.6)';
+                        ctx.beginPath();
+                        ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 15, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "bold 14px sans-serif";
+                        ctx.fillText(classes[parseInt(result.label)], (x * tw) + 5, (y * th) + 20);
+                    }
+                    crop.dispose();
+                    resizedCrop.dispose();
+                }
+            }
+            videoTensor.dispose();
+            countNum.innerText = totalCount;
+            customLabel.innerText = `Total ${name0}/${name1}: ${totalCount}`;
+            customPredBox.classList.remove('hidden');
+        } else {
+            // --- FULL FRAME CLASSIFICATION ---
+            const img = tf.browser.fromPixels(video);
+            const resized = tf.image.resizeBilinear(img, [224, 224]);
+            const activation = featureExtractor.infer(resized, 'conv_preds');
+            try {
+                const result = await classifier.predictClass(activation);
+                const labelIndex = parseInt(result.label);
+                const label = classes[labelIndex];
+                const prob = result.confidences[result.label];
+
+                if (prob > confidenceThreshold) {
+                    customLabel.innerText = `${label} (${Math.round(prob * 100)}%)`;
+                    customPredBox.classList.remove('hidden');
+                    ctx.strokeStyle = '#2dd4bf';
+                    ctx.lineWidth = 12;
+                    ctx.strokeRect(canvas.width * 0.02, canvas.height * 0.02, canvas.width * 0.96, canvas.height * 0.96);
+                    if (labelIndex !== 2) speak(`Viendo: ${label}`);
+                } else {
+                    customLabel.innerText = 'Escaneando...';
+                }
+            } catch (e) { }
+            img.dispose();
+            resized.dispose();
+            countNum.innerText = cocoDetectedCount; // Balance count
         }
+    } else {
+        countNum.innerText = cocoDetectedCount;
+        customPredBox.classList.add('hidden');
     }
 
     requestAnimationFrame(detect);
 }
 
-// Training with Thumbnails
+// Training with Resizing
 async function addExample(classId) {
     const img = tf.browser.fromPixels(video);
-    const activation = featureExtractor.infer(img, 'conv_preds');
+    const resized = tf.image.resizeBilinear(img, [224, 224]);
+    const activation = featureExtractor.infer(resized, 'conv_preds');
     classifier.addExample(activation, classId);
     img.dispose();
+    resized.dispose();
 
     classSampleCounts[classId]++;
 
-    // Capture Thumbnail
+    // Thumbnail Capture
     const thumbCanvas = document.createElement('canvas');
-    thumbCanvas.width = 80;
-    thumbCanvas.height = 80;
+    thumbCanvas.width = 100;
+    thumbCanvas.height = 100;
     const tCtx = thumbCanvas.getContext('2d');
-    // Square crop from center
     const size = Math.min(video.videoWidth, video.videoHeight);
     const startX = (video.videoWidth - size) / 2;
     const startY = (video.videoHeight - size) / 2;
-    tCtx.drawImage(video, startX, startY, size, size, 0, 0, 80, 80);
+    tCtx.drawImage(video, startX, startY, size, size, 0, 0, 100, 100);
 
-    const base64 = thumbCanvas.toDataURL('image/jpeg', 0.5);
+    const base64 = thumbCanvas.toDataURL('image/jpeg', 0.6);
     classThumbnails[classId].push(base64);
-    if (classThumbnails[classId].length > 6) classThumbnails[classId].shift(); // Keep last 6
+    if (classThumbnails[classId].length > 8) classThumbnails[classId].shift();
 
     updateUIFeedback();
 }
@@ -363,12 +376,13 @@ async function addExample(classId) {
 // Event Listeners
 [0, 1, 2].forEach(id => {
     const btn = document.getElementById(`add-class-${id}`);
+    if (!btn) return;
     let interval;
     const start = (e) => {
         if (e.cancelable) e.preventDefault();
         btn.classList.add('recording');
         addExample(id);
-        interval = setInterval(() => addExample(id), 250); // Slower capture for better visual feedback
+        interval = setInterval(() => addExample(id), 200);
     };
     const end = () => {
         clearInterval(interval);
@@ -397,7 +411,11 @@ trainModeBtn.addEventListener('click', () => {
     isTrainingMode = !isTrainingMode;
     trainModeBtn.innerText = isTrainingMode ? 'Desactivar IA Personalizada' : 'Activar IA Personalizada';
     aiModeText.innerText = isTrainingMode ? 'Modo: APRENDIZAJE / CONTEO' : 'Modo: Estándar (Inspección General)';
-    customPredBox.classList.toggle('hidden', !isTrainingMode);
+    // Force standard count if custom off
+    if (!isTrainingMode) {
+        labelsContainer.innerHTML = '';
+        customPredBox.classList.add('hidden');
+    }
 });
 
 saveModelBtn.addEventListener('click', saveModel);
