@@ -11,6 +11,7 @@
     --glass: rgba(30, 41, 59, 0.7);
     --glass-border: rgba(255, 255, 255, 0.1);
     --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    --screen-margin: 20px;
 }
 
 * {
@@ -32,6 +33,8 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
+    padding: var(--screen-margin);
+    /* Global Screen Margin */
 }
 
 /* Header */
@@ -39,20 +42,20 @@ header {
     padding: 1rem 1.5rem;
     background: var(--glass);
     backdrop-filter: blur(15px);
-    border-bottom: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 100;
+    margin-bottom: 1rem;
 }
 
 .logo {
     font-weight: 800;
     font-size: 1.4rem;
-    background: linear-gradient(to right, var(--primary), var(--accent));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-main);
+    letter-spacing: -0.02rem;
 }
 
 .header-actions {
@@ -62,16 +65,21 @@ header {
 
 .icon-btn {
     background: none;
-    border: none;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
     font-size: 1.5rem;
     cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 50%;
+    padding: 0.6rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: var(--transition-smooth);
 }
 
 .icon-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .icon-btn:active {
@@ -79,11 +87,12 @@ header {
 }
 
 .status {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--primary);
-    font-weight: 600;
-    padding: 0.2rem 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 1rem;
     background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.2);
     border-radius: 100px;
 }
 
@@ -91,7 +100,8 @@ header {
 .dashboard-layout {
     flex: 1;
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 1rem;
     overflow: hidden;
 }
 
@@ -106,11 +116,15 @@ header {
 .camera-wall {
     position: relative;
     background: #000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
     overflow: hidden;
-    border-right: 1px solid var(--glass-border);
+}
+
+.camera-frame {
+    width: 100%;
+    height: 100%;
+    position: relative;
 }
 
 #video {
@@ -137,24 +151,26 @@ header {
 }
 
 .counter-badge {
-    background: var(--glass);
+    background: rgba(15, 23, 42, 0.8);
     border: 1px solid var(--primary);
     padding: 0.6rem 1.2rem;
-    border-radius: 100px;
-    backdrop-filter: blur(5px);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 #count-num {
     color: var(--primary);
-    font-size: 1.4rem;
+    font-size: 1.2rem;
 }
 
 /* Info Panel */
 .info-panel {
-    background: var(--bg-dark);
+    background: var(--bg-card);
     padding: 2rem;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -163,75 +179,79 @@ header {
 
 @media (max-width: 900px) {
     .info-panel {
-        padding: 1rem;
-        max-height: 40vh;
+        padding: 1.5rem;
+        max-height: 45vh;
     }
 }
 
 .panel-section h3 {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.1rem;
+    letter-spacing: 0.15rem;
     color: var(--text-muted);
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .labels-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.8rem;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
 }
 
 .label-tag {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
-    padding: 0.8rem;
-    border-radius: 12px;
-    font-size: 0.9rem;
+    background: var(--bg-dark);
+    border-left: 4px solid var(--primary);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
     display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    transition: var(--transition-smooth);
+    justify-content: space-between;
+    align-items: center;
 }
 
-.label-tag:hover {
-    border-color: var(--primary);
+.label-tag span {
+    color: var(--text-muted);
+    font-size: 0.8rem;
 }
 
 .panel-section.actions {
     margin-top: auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .btn-secondary {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    color: var(--text-main);
-    padding: 1rem;
-    border-radius: 12px;
-    font-weight: 600;
+    background: var(--text-main);
+    color: var(--bg-dark);
+    border: none;
+    padding: 1.2rem;
+    border-radius: 14px;
+    font-weight: 700;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: var(--transition-smooth);
 }
 
 .btn-secondary:hover {
-    background: var(--glass-border);
-    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .training-status-card {
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(45, 212, 191, 0.1));
-    border: 1px solid rgba(56, 189, 248, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
     padding: 1.5rem;
-    border-radius: 20px;
+    border-radius: 16px;
 }
 
 .training-status-card h4 {
-    font-size: 0.8rem;
-    color: var(--accent);
+    font-size: 0.75rem;
+    color: var(--primary);
     margin-bottom: 0.5rem;
+    text-transform: uppercase;
 }
 
 .training-status-card p {
@@ -243,56 +263,46 @@ header {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--glass-border);
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: var(--accent);
+    font-weight: 700;
 }
 
 .hidden {
     display: none !important;
 }
 
-/* Drawer & Training */
+/* Drawer & Training inputs */
 .drawer {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: var(--bg-dark);
-    border-top: 2px solid var(--primary);
-    border-radius: 32px 32px 0 0;
+    bottom: 2rem;
+    right: 2rem;
+    width: 400px;
+    background: var(--bg-card);
+    border: 1px solid var(--primary);
+    border-radius: 24px;
     padding: 2.5rem;
     z-index: 1000;
-    transform: translateY(100%);
+    transform: translateX(120%);
     transition: var(--transition-smooth);
-    box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.5);
-}
-
-@media (min-width: 901px) {
-    .drawer {
-        top: 0;
-        right: 0;
-        left: auto;
-        bottom: auto;
-        width: 400px;
-        height: 100%;
-        border-top: none;
-        border-left: 2px solid var(--primary);
-        border-radius: 0;
-        transform: translateX(100%);
-    }
-
-    .drawer.active {
-        transform: translateX(0);
-    }
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 
 .drawer.active {
-    transform: translateY(0);
+    transform: translateX(0);
 }
 
-@media (min-width: 901px) {
+@media (max-width: 900px) {
+    .drawer {
+        bottom: 0;
+        right: 0;
+        width: 100%;
+        border-radius: 32px 32px 0 0;
+        transform: translateY(100%);
+    }
+
     .drawer.active {
-        transform: translateX(0);
+        transform: translateY(0);
     }
 }
 
@@ -300,25 +310,29 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+}
+
+.drawer-header h3 {
+    font-size: 1.2rem;
 }
 
 .close-btn {
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 2.5rem;
+    font-size: 2rem;
     cursor: pointer;
 }
 
 .control-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .control-group label {
     display: block;
-    margin-bottom: 0.8rem;
-    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
     color: var(--text-muted);
 }
 
@@ -332,6 +346,7 @@ input[type="range"] {
     align-items: center;
     gap: 1rem;
     cursor: pointer;
+    font-size: 0.9rem;
 }
 
 hr {
@@ -340,61 +355,84 @@ hr {
     margin: 2rem 0;
 }
 
-.train-controls {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.8rem;
+.train-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
     margin: 1.5rem 0;
 }
 
-.btn-train {
-    background: rgba(255, 255, 255, 0.05);
+.train-item {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.train-item input {
+    flex: 1;
+    background: var(--bg-dark);
     border: 1px solid var(--glass-border);
-    color: var(--text-main);
-    padding: 1.2rem 0.5rem;
-    border-radius: 12px;
+    color: #fff;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
     font-size: 0.9rem;
+}
+
+.train-item input:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.btn-train-action {
+    background: var(--bg-dark);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 0 1.2rem;
+    border-radius: 10px;
     font-weight: 600;
     cursor: pointer;
     transition: var(--transition-smooth);
-    user-select: none;
-    -webkit-user-select: none;
+    white-space: nowrap;
 }
 
-.btn-train:active,
-.btn-train.recording {
+.btn-train-action:active,
+.btn-train-action.recording {
     background: var(--primary);
     color: #000;
-    transform: scale(0.95);
-    border-color: #fff;
 }
 
 .train-actions {
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
+    margin-top: 2rem;
 }
 
 .btn-outline {
     background: none;
-    border: 1px solid var(--primary);
-    color: var(--primary);
+    border: 1px solid var(--accent);
+    color: var(--accent);
     padding: 1rem;
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
 }
 
-.btn-outline:active {
+.btn-primary {
     background: var(--primary);
     color: #000;
+    border: none;
+    padding: 1.2rem;
+    border-radius: 14px;
+    font-weight: 800;
+    cursor: pointer;
 }
 
 .btn-danger-link {
     background: none;
     border: none;
     color: var(--danger);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     cursor: pointer;
     text-decoration: underline;
+    margin-top: 1rem;
 }

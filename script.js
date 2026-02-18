@@ -16,6 +16,7 @@ const captureBtn = document.getElementById('capture-btn');
 
 // Training UI
 const trainModeBtn = document.getElementById('train-mode-btn');
+const saveModelBtn = document.getElementById('save-model-btn');
 const resetTraining = document.getElementById('reset-training');
 const aiModeText = document.getElementById('ai-mode-text');
 const customPredBox = document.getElementById('custom-prediction');
@@ -33,7 +34,7 @@ let lastSpokenTime = 0;
 
 // Camera Handling
 async function setupCamera() {
-    status.innerText = 'Buscando cámara...';
+    status.innerText = 'Conectando cámara...';
     if (video.srcObject) {
         video.srcObject.getTracks().forEach(track => track.stop());
     }
@@ -58,17 +59,58 @@ async function setupCamera() {
             };
         });
     } catch (err) {
-        status.innerText = 'Sin acceso a cámara';
+        status.innerText = 'Cámara bloqueada';
         console.error(err);
-        alert('Por favor activa los permisos de cámara');
+    }
+}
+
+// Model Persistence Logic
+function saveModel() {
+    const dataset = classifier.getClassifierDataset();
+    if (Object.keys(dataset).length === 0) {
+        status.innerText = 'Sin datos para guardar';
+        return;
+    }
+
+    const readableDataset = {};
+    Object.keys(dataset).forEach((key) => {
+        const data = dataset[key].dataSync();
+        readableDataset[key] = Array.from(data);
+    });
+
+    const json = JSON.stringify({
+        dataset: readableDataset,
+        shape: dataset[0].shape // Capture first for shape reference
+    });
+
+    localStorage.setItem('vision_it_model', json);
+    status.innerText = 'Modelo guardado localmente';
+}
+
+function loadModel() {
+    const json = localStorage.getItem('vision_it_model');
+    if (!json) return;
+
+    try {
+        const data = JSON.parse(json);
+        const dataset = data.dataset;
+        const tensors = {};
+
+        Object.keys(dataset).forEach((key) => {
+            tensors[key] = tf.tensor2d(dataset[key], [dataset[key].length / 1024, 1024]);
+        });
+
+        classifier.setClassifierDataset(tensors);
+        status.innerText = 'Modelo previo cargado';
+    } catch (err) {
+        console.error('Error al cargar modelo:', err);
     }
 }
 
 // Model Loading
 async function loadModels() {
-    status.innerText = 'Conectando cerebros...';
+    status.innerText = 'Conectando...';
     try {
-        // Load in parallel
         const [cocoRes, mobRes] = await Promise.all([
             cocoSsd.load(),
             mobilenet.load({ version: 2, alpha: 1.0 })
@@ -78,9 +120,10 @@ async function loadModels() {
         featureExtractor = mobRes;
         classifier = knnClassifier.create();
 
-        status.innerText = 'IA Lista';
+        loadModel(); // Load saved data if exists
+        status.innerText = 'Sistema Listo';
     } catch (err) {
-        status.innerText = 'Error al cargar IA';
+        status.innerText = 'Fallo en conexión';
         console.error(err);
     }
 }
@@ -90,12 +133,10 @@ function speak(text) {
     const now = Date.now();
     if (now - lastSpokenTime < 4000 && text === lastSpoken) return;
 
-    // Cancel previous speech to be more responsive
     window.speechSynthesis.cancel();
-
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'es-ES';
-    u.rate = 1.1; // Slightly faster for responsiveness
+    u.rate = 1.1;
     window.speechSynthesis.speak(u);
     lastSpoken = text;
     lastSpokenTime = now;
@@ -108,21 +149,24 @@ async function detect() {
     }
 
     const ctx = canvas.getContext('2d');
-    // Actual frame dimensions
     if (video.videoWidth) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (isTrainingMode) {
-        // --- CUSTOM CLASSIFICATION MODE ---
-        if (classifier.getNumClasses() > 0) {
-            const img = tf.browser.fromPixels(video);
-            const activation = featureExtractor.infer(img, 'conv_preds');
+    if (isTrainingMode && classifier.getNumClasses() > 0) {
+        const img = tf.browser.fromPixels(video);
+        const activation = featureExtractor.infer(img, 'conv_preds');
+
+        try {
             const result = await classifier.predictClass(activation);
 
-            const classes = ['Objeto 1', 'Objeto 2', 'NADA/Fondo'];
+            const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
+            const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
+            const name2 = document.getElementById('name-class-2').value || 'Fondo';
+            const classes = [name0, name1, name2];
+
             const label = classes[result.label];
             const probability = result.confidences[result.label];
 
@@ -130,21 +174,21 @@ async function detect() {
                 customLabel.innerText = `${label} (${Math.round(probability * 100)}%)`;
                 customPredBox.classList.remove('hidden');
 
-                // Visual Highlight on Canvas
-                ctx.strokeStyle = 'var(--accent)';
+                ctx.strokeStyle = '#2dd4bf';
                 ctx.lineWidth = 10;
                 ctx.strokeRect(canvas.width * 0.1, canvas.height * 0.1, canvas.width * 0.8, canvas.height * 0.8);
 
-                if (label !== 'NADA/Fondo') {
-                    speak(`Esto es ${label}`);
+                if (label !== name2) {
+                    speak(`Identificado: ${label}`);
                 }
             } else {
-                customLabel.innerText = '---';
+                customLabel.innerText = 'Analizando...';
             }
-            img.dispose();
+        } catch (e) {
+            console.warn("Esperando datos de entrenamiento...");
         }
+        img.dispose();
     } else {
-        // --- STANDARD DETECTION MODE ---
         const predictions = await model.detect(video);
         const filtered = predictions.filter(p => p.score >= confidenceThreshold);
 
@@ -153,13 +197,10 @@ async function detect() {
 
         filtered.forEach(prediction => {
             const [x, y, width, height] = prediction.bbox;
-
-            // Draw Box
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 4;
             ctx.strokeRect(x, y, width, height);
 
-            // Create Label Element
             const tag = document.createElement('div');
             tag.className = 'label-tag';
             tag.innerHTML = `<strong>${prediction.class}</strong><span>${Math.round(prediction.score * 100)}%</span>`;
@@ -168,55 +209,47 @@ async function detect() {
 
         if (filtered.length > 0) {
             const sumNames = [...new Set(filtered.map(f => f.class))].join(' y ');
-            speak(`Hay ${filtered.length} objetos: ${sumNames}`);
+            speak(`${filtered.length} objetos en panel: ${sumNames}`);
         }
     }
 
     requestAnimationFrame(detect);
 }
 
-// Training Interactions
+// Training Logic
 async function addExample(classId) {
-    if (!isTrainingMode) return;
-
-    // Visual feedback
-    const btn = document.getElementById(`add-class-${classId}`);
-    btn.classList.add('recording');
     status.innerText = 'Entrenando...';
-
     const img = tf.browser.fromPixels(video);
     const activation = featureExtractor.infer(img, 'conv_preds');
     classifier.addExample(activation, classId);
     img.dispose();
-
-    setTimeout(() => {
-        btn.classList.remove('recording');
-        status.innerText = 'IA Lista';
-    }, 200);
 }
 
 // Event Listeners
 [0, 1, 2].forEach(id => {
     const btn = document.getElementById(`add-class-${id}`);
-
-    // Support for both mouse and touch (holding)
     let interval;
+
     const start = (e) => {
         if (e.cancelable) e.preventDefault();
+        btn.classList.add('recording');
         addExample(id);
         interval = setInterval(() => addExample(id), 100);
     };
-    const end = () => clearInterval(interval);
+
+    const end = () => {
+        clearInterval(interval);
+        btn.classList.remove('recording');
+        status.innerText = 'Entrenamiento guardado en sesión';
+    };
 
     btn.addEventListener('mousedown', start);
     btn.addEventListener('mouseup', end);
     btn.addEventListener('mouseleave', end);
-
     btn.addEventListener('touchstart', start, { passive: false });
     btn.addEventListener('touchend', end);
 });
 
-// General UI
 openSettings.addEventListener('click', () => settingsDrawer.classList.add('active'));
 closeSettings.addEventListener('click', () => settingsDrawer.classList.remove('active'));
 
@@ -229,14 +262,17 @@ speechToggle.addEventListener('change', (e) => isSpeechEnabled = e.target.checke
 
 trainModeBtn.addEventListener('click', () => {
     isTrainingMode = !isTrainingMode;
-    trainModeBtn.innerText = isTrainingMode ? 'Desactivar Entrenamiento' : 'Activar Entrenamiento';
-    aiModeText.innerText = isTrainingMode ? 'Modo: APRENDIZAJE' : 'Modo: Estándar (COCO-SSD)';
+    trainModeBtn.innerText = isTrainingMode ? 'Desactivar IA Personalizada' : 'Activar IA Personalizada';
+    aiModeText.innerText = isTrainingMode ? 'Modo: APRENDIZAJE ACTIVO' : 'Modo: Estándar (Inspección General)';
     customPredBox.classList.toggle('hidden', !isTrainingMode);
 });
 
+saveModelBtn.addEventListener('click', saveModel);
+
 resetTraining.addEventListener('click', () => {
     classifier.clearAllClasses();
-    status.innerText = 'Cerebro Reiniciado';
+    localStorage.removeItem('vision_it_model');
+    status.innerText = 'Base de datos reiniciada';
 });
 
 captureBtn.addEventListener('click', () => {
@@ -248,7 +284,7 @@ captureBtn.addEventListener('click', () => {
     tCtx.drawImage(canvas, 0, 0);
 
     const link = document.createElement('a');
-    link.download = `captura-it-${Date.now()}.png`;
+    link.download = `inspeccion-it-${Date.now()}.png`;
     link.href = tempCanvas.toDataURL('image/png');
     link.click();
 });
@@ -258,7 +294,7 @@ toggleCamBtn.addEventListener('click', async () => {
     await setupCamera();
 });
 
-// Init
+// Final Initialization
 (async () => {
     await setupCamera();
     await loadModels();
