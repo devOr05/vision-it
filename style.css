@@ -399,7 +399,7 @@ hr {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
 }
 
 .train-meta input {
@@ -412,6 +412,36 @@ hr {
     font-size: 0.9rem;
 }
 
+.btn-reset-class {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-smooth);
+}
+
+.btn-reset-class:hover {
+    background: var(--danger);
+    color: #fff;
+}
+
+.train-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.train-controls-row .btn-train-action {
+    flex: 1;
+}
+
 .sample-badge {
     font-size: 0.7rem;
     color: var(--accent);
@@ -420,6 +450,32 @@ hr {
     border-radius: 100px;
     white-space: nowrap;
     font-weight: 700;
+}
+
+.sample-gallery {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.sample-gallery::-webkit-scrollbar {
+    height: 3px;
+}
+
+.sample-gallery::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 10px;
+}
+
+.sample-thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--glass-border);
+    flex-shrink: 0;
 }
 
 .btn-train-action {

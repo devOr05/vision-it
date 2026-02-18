@@ -22,10 +22,16 @@ const resetTraining = document.getElementById('reset-training');
 const aiModeText = document.getElementById('ai-mode-text');
 const customPredBox = document.getElementById('custom-prediction');
 const customLabel = document.getElementById('custom-label');
+
 const sampleCounters = [
     document.getElementById('samples-0'),
     document.getElementById('samples-1'),
     document.getElementById('samples-2')
+];
+const galleries = [
+    document.getElementById('gallery-0'),
+    document.getElementById('gallery-1'),
+    document.getElementById('gallery-2')
 ];
 
 let model;
@@ -38,7 +44,9 @@ let isTrainingMode = false;
 let isCountingMode = false;
 let lastSpoken = "";
 let lastSpokenTime = 0;
+
 let classSampleCounts = [0, 0, 0];
+let classThumbnails = [[], [], []]; // Array of Base64 strings per class
 
 // Camera Handling
 async function setupCamera() {
@@ -72,7 +80,7 @@ async function setupCamera() {
     }
 }
 
-// Model Persistence Logic
+// Memory & Persistence
 function saveModel() {
     const dataset = classifier.getClassifierDataset();
     if (Object.keys(dataset).length === 0) {
@@ -88,21 +96,23 @@ function saveModel() {
 
     const json = JSON.stringify({
         dataset: readableDataset,
-        counts: classSampleCounts
+        counts: classSampleCounts,
+        thumbnails: classThumbnails.map(arr => arr.slice(-3)) // Save last 3 per class
     });
 
-    localStorage.setItem('vision_it_model_v2', json);
-    status.innerText = 'Aprendizaje guardado correctamente';
+    localStorage.setItem('vision_it_model_v3', json);
+    status.innerText = 'Memoria guardada físicamente';
 }
 
 function loadModel() {
-    const json = localStorage.getItem('vision_it_model_v2');
+    const json = localStorage.getItem('vision_it_model_v3');
     if (!json) return;
 
     try {
         const data = JSON.parse(json);
         const dataset = data.dataset;
         classSampleCounts = data.counts || [0, 0, 0];
+        classThumbnails = data.thumbnails || [[], [], []];
 
         const tensors = {};
         Object.keys(dataset).forEach((key) => {
@@ -110,18 +120,41 @@ function loadModel() {
         });
 
         classifier.setClassifierDataset(tensors);
-        updateSampleUI();
-        status.innerText = 'Sistema listo (Memoria cargada)';
+        updateUIFeedback();
+        status.innerText = 'Memoria restaurada';
     } catch (err) {
-        console.error('Error al cargar modelo:', err);
+        console.error('Error loading model:', err);
     }
 }
 
-function updateSampleUI() {
+function updateUIFeedback() {
     classSampleCounts.forEach((count, i) => {
         sampleCounters[i].innerText = count;
+
+        // Update Galleries
+        galleries[i].innerHTML = '';
+        classThumbnails[i].forEach(src => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.className = 'sample-thumbnail';
+            galleries[i].appendChild(img);
+        });
     });
 }
+
+window.resetClass = (id) => {
+    if (confirm(`¿Reiniciar aprendizaje para ${document.getElementById(`name-class-${id}`).value}?`)) {
+        try {
+            classifier.clearClass(id);
+        } catch (e) {
+            // If class doesn't exist yet, it's fine
+        }
+        classSampleCounts[id] = 0;
+        classThumbnails[id] = [];
+        updateUIFeedback();
+        status.innerText = 'Clase reiniciada';
+    }
+};
 
 // Model Loading
 async function loadModels() {
@@ -136,9 +169,9 @@ async function loadModels() {
         classifier = knnClassifier.create();
 
         loadModel();
-        status.innerText = 'Sistema Activo';
+        status.innerText = 'IA Activa';
     } catch (err) {
-        status.innerText = 'Fallo en conexión';
+        status.innerText = 'Error de conexión';
         console.error(err);
     }
 }
@@ -157,7 +190,6 @@ function speak(text) {
     lastSpokenTime = now;
 }
 
-// DRAW GRID FOR COUNTING MODE
 function drawGrid(ctx) {
     if (!isCountingMode) return;
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
@@ -195,7 +227,6 @@ async function detect() {
         const classes = [name0, name1, name2];
 
         if (isCountingMode) {
-            // --- TILED COUNTING MODE ---
             drawGrid(ctx);
             const cols = 4;
             const rows = 4;
@@ -205,49 +236,50 @@ async function detect() {
 
             for (let y = 0; y < rows; y++) {
                 for (let x = 0; x < cols; x++) {
-                    // Crop frame
                     const crop = tf.browser.fromPixels(video).slice([y * th, x * tw, 0], [th, tw, 3]);
                     const activation = featureExtractor.infer(crop, 'conv_preds');
                     const result = await classifier.predictClass(activation);
 
                     if (result.label !== 2 && result.confidences[result.label] > confidenceThreshold) {
                         totalCount++;
-                        // Draw marker
                         ctx.fillStyle = 'rgba(45, 212, 191, 0.5)';
                         ctx.beginPath();
-                        ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 10, 0, Math.PI * 2);
+                        ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 12, 0, Math.PI * 2);
                         ctx.fill();
+
+                        // Debug text on tile
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "10px sans-serif";
+                        ctx.fillText(classes[result.label], (x * tw) + 5, (y * th) + 15);
                     }
                     crop.dispose();
                 }
             }
             countNum.innerText = totalCount;
-            customLabel.innerText = `Total ${name0}/${name1}: ${totalCount}`;
+            customLabel.innerText = `${name0}/${name1} Detectados: ${totalCount}`;
             customPredBox.classList.remove('hidden');
         } else {
-            // --- FULL FRAME CLASSIFICATION ---
             const img = tf.browser.fromPixels(video);
             const activation = featureExtractor.infer(img, 'conv_preds');
             try {
                 const result = await classifier.predictClass(activation);
                 const label = classes[result.label];
-                const probability = result.confidences[result.label];
+                const prob = result.confidences[result.label];
 
-                if (probability > confidenceThreshold) {
-                    customLabel.innerText = `${label} (${Math.round(probability * 100)}%)`;
+                if (prob > confidenceThreshold) {
+                    customLabel.innerText = `${label} (${Math.round(prob * 100)}%)`;
                     customPredBox.classList.remove('hidden');
                     ctx.strokeStyle = '#2dd4bf';
-                    ctx.lineWidth = 10;
-                    ctx.strokeRect(canvas.width * 0.1, canvas.height * 0.1, canvas.width * 0.8, canvas.height * 0.8);
+                    ctx.lineWidth = 8;
+                    ctx.strokeRect(canvas.width * 0.05, canvas.height * 0.05, canvas.width * 0.9, canvas.height * 0.9);
                     if (label !== name2) speak(`Identificado: ${label}`);
                 } else {
-                    customLabel.innerText = 'Buscando patrón...';
+                    customLabel.innerText = 'Analizando superficie...';
                 }
             } catch (e) { }
             img.dispose();
         }
     } else {
-        // --- STANDARD COCO-SSD DETECTION ---
         const predictions = await model.detect(video);
         const filtered = predictions.filter(p => p.score >= confidenceThreshold);
         countNum.innerText = filtered.length;
@@ -267,14 +299,14 @@ async function detect() {
 
         if (filtered.length > 0) {
             const sumNames = [...new Set(filtered.map(f => f.class))].join(' y ');
-            speak(`${filtered.length} objetos en panel: ${sumNames}`);
+            speak(`${filtered.length} objetos: ${sumNames}`);
         }
     }
 
     requestAnimationFrame(detect);
 }
 
-// Training Logic
+// Training with Thumbnails
 async function addExample(classId) {
     const img = tf.browser.fromPixels(video);
     const activation = featureExtractor.infer(img, 'conv_preds');
@@ -282,27 +314,40 @@ async function addExample(classId) {
     img.dispose();
 
     classSampleCounts[classId]++;
-    updateSampleUI();
+
+    // Capture Thumbnail
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = 80;
+    thumbCanvas.height = 80;
+    const tCtx = thumbCanvas.getContext('2d');
+    // Square crop from center
+    const size = Math.min(video.videoWidth, video.videoHeight);
+    const startX = (video.videoWidth - size) / 2;
+    const startY = (video.videoHeight - size) / 2;
+    tCtx.drawImage(video, startX, startY, size, size, 0, 0, 80, 80);
+
+    const base64 = thumbCanvas.toDataURL('image/jpeg', 0.5);
+    classThumbnails[classId].push(base64);
+    if (classThumbnails[classId].length > 6) classThumbnails[classId].shift(); // Keep last 6
+
+    updateUIFeedback();
 }
 
 // Event Listeners
 [0, 1, 2].forEach(id => {
     const btn = document.getElementById(`add-class-${id}`);
     let interval;
-
     const start = (e) => {
         if (e.cancelable) e.preventDefault();
         btn.classList.add('recording');
         addExample(id);
-        interval = setInterval(() => addExample(id), 150);
+        interval = setInterval(() => addExample(id), 250); // Slower capture for better visual feedback
     };
-
     const end = () => {
         clearInterval(interval);
         btn.classList.remove('recording');
-        status.innerText = 'Muestras añadidas';
+        status.innerText = 'Fotos procesadas';
     };
-
     btn.addEventListener('mousedown', start);
     btn.addEventListener('mouseup', end);
     btn.addEventListener('mouseleave', end);
@@ -333,9 +378,10 @@ saveModelBtn.addEventListener('click', saveModel);
 resetTraining.addEventListener('click', () => {
     if (confirm('¿Reiniciar toda la base de datos de aprendizaje?')) {
         classifier.clearAllClasses();
-        localStorage.removeItem('vision_it_model_v2');
+        localStorage.removeItem('vision_it_model_v3');
         classSampleCounts = [0, 0, 0];
-        updateSampleUI();
+        classThumbnails = [[], [], []];
+        updateUIFeedback();
         status.innerText = 'Memoria borrada';
     }
 });
@@ -347,7 +393,6 @@ captureBtn.addEventListener('click', () => {
     const tCtx = tempCanvas.getContext('2d');
     tCtx.drawImage(video, 0, 0);
     tCtx.drawImage(canvas, 0, 0);
-
     const link = document.createElement('a');
     link.download = `captura-it-${Date.now()}.png`;
     link.href = tempCanvas.toDataURL('image/png');

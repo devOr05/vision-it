@@ -121,23 +121,38 @@
                         <div class="train-item">
                             <div class="train-meta">
                                 <input type="text" id="name-class-0" value="Objeto 1" placeholder="Nombre Objeto 1">
-                                <span class="sample-badge">Muestras: <span id="samples-0">0</span></span>
+                                <button class="btn-reset-class" onclick="resetClass(0)"
+                                    title="Reiniciar Clase">&times;</button>
                             </div>
-                            <button id="add-class-0" class="btn-train-action">Capturar Muestra</button>
+                            <div class="train-controls-row">
+                                <button id="add-class-0" class="btn-train-action">Capturar Muestra</button>
+                                <span class="sample-badge"><span id="samples-0">0</span> fotos</span>
+                            </div>
+                            <div id="gallery-0" class="sample-gallery"></div>
                         </div>
                         <div class="train-item">
                             <div class="train-meta">
                                 <input type="text" id="name-class-1" value="Objeto 2" placeholder="Nombre Objeto 2">
-                                <span class="sample-badge">Muestras: <span id="samples-1">0</span></span>
+                                <button class="btn-reset-class" onclick="resetClass(1)"
+                                    title="Reiniciar Clase">&times;</button>
                             </div>
-                            <button id="add-class-1" class="btn-train-action">Capturar Muestra</button>
+                            <div class="train-controls-row">
+                                <button id="add-class-1" class="btn-train-action">Capturar Muestra</button>
+                                <span class="sample-badge"><span id="samples-1">0</span> fotos</span>
+                            </div>
+                            <div id="gallery-1" class="sample-gallery"></div>
                         </div>
                         <div class="train-item">
                             <div class="train-meta">
                                 <input type="text" id="name-class-2" value="Fondo" placeholder="Nombre Fondo">
-                                <span class="sample-badge">Muestras: <span id="samples-2">0</span></span>
+                                <button class="btn-reset-class" onclick="resetClass(2)"
+                                    title="Reiniciar Clase">&times;</button>
                             </div>
-                            <button id="add-class-2" class="btn-train-action">Capturar Muestra</button>
+                            <div class="train-controls-row">
+                                <button id="add-class-2" class="btn-train-action">Capturar Muestra</button>
+                                <span class="sample-badge"><span id="samples-2">0</span> fotos</span>
+                            </div>
+                            <div id="gallery-2" class="sample-gallery"></div>
                         </div>
                     </div>
 
