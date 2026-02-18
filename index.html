@@ -72,7 +72,7 @@
                                 d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
                             <circle cx="12" cy="13" r="3" />
                         </svg>
-                        Capturar Inspección
+                        Capturar
                     </button>
 
                     <div class="training-status-card">
@@ -104,24 +104,40 @@
                     </label>
                 </div>
 
+                <div class="control-group">
+                    <label class="switch-label">
+                        <input type="checkbox" id="count-mode-toggle">
+                        <span>Modo Contador (Grid Analysis)</span>
+                    </label>
+                </div>
+
                 <hr>
 
                 <div class="training-section">
                     <h4>Clasificación Personalizada</h4>
-                    <p>Defina etiquetas y mantenga presionado para entrenar:</p>
+                    <p>Defina nombres y mantenga presionado para capturar muestras:</p>
 
                     <div class="train-input-group">
                         <div class="train-item">
-                            <input type="text" id="name-class-0" value="Objeto 1" placeholder="Nombre Objeto 1">
-                            <button id="add-class-0" class="btn-train-action">Entrenar</button>
+                            <div class="train-meta">
+                                <input type="text" id="name-class-0" value="Objeto 1" placeholder="Nombre Objeto 1">
+                                <span class="sample-badge">Muestras: <span id="samples-0">0</span></span>
+                            </div>
+                            <button id="add-class-0" class="btn-train-action">Capturar Muestra</button>
                         </div>
                         <div class="train-item">
-                            <input type="text" id="name-class-1" value="Objeto 2" placeholder="Nombre Objeto 2">
-                            <button id="add-class-1" class="btn-train-action">Entrenar</button>
+                            <div class="train-meta">
+                                <input type="text" id="name-class-1" value="Objeto 2" placeholder="Nombre Objeto 2">
+                                <span class="sample-badge">Muestras: <span id="samples-1">0</span></span>
+                            </div>
+                            <button id="add-class-1" class="btn-train-action">Capturar Muestra</button>
                         </div>
                         <div class="train-item">
-                            <input type="text" id="name-class-2" value="Fondo" placeholder="Nombre Fondo">
-                            <button id="add-class-2" class="btn-train-action">Entrenar</button>
+                            <div class="train-meta">
+                                <input type="text" id="name-class-2" value="Fondo" placeholder="Nombre Fondo">
+                                <span class="sample-badge">Muestras: <span id="samples-2">0</span></span>
+                            </div>
+                            <button id="add-class-2" class="btn-train-action">Capturar Muestra</button>
                         </div>
                     </div>
 
