@@ -81,27 +81,53 @@ async function setupCamera() {
 }
 
 // Memory & Persistence
-function saveModel() {
+// Memory & Persistence
+async function saveModel() {
     const dataset = classifier.getClassifierDataset();
+    const saveBtn = document.getElementById('save-model-btn');
+
     if (Object.keys(dataset).length === 0) {
-        status.innerText = 'Sin datos para guardar';
+        status.innerText = '⚠️ Capture muestras antes de guardar';
+        status.style.color = '#fbbf24';
         return;
     }
 
-    const readableDataset = {};
-    Object.keys(dataset).forEach((key) => {
-        const data = dataset[key].dataSync();
-        readableDataset[key] = Array.from(data);
-    });
+    try {
+        saveBtn.innerText = 'Guardando...';
+        saveBtn.disabled = true;
 
-    const json = JSON.stringify({
-        dataset: readableDataset,
-        counts: classSampleCounts,
-        thumbnails: classThumbnails.map(arr => arr.slice(-3)) // Save last 3 per class
-    });
+        const readableDataset = {};
+        Object.keys(dataset).forEach((key) => {
+            const data = dataset[key].dataSync();
+            readableDataset[key] = Array.from(data);
+        });
 
-    localStorage.setItem('vision_it_model_v3', json);
-    status.innerText = 'Memoria guardada físicamente';
+        const json = JSON.stringify({
+            dataset: readableDataset,
+            counts: classSampleCounts,
+            thumbnails: classThumbnails.map(arr => arr.slice(-3))
+        });
+
+        localStorage.setItem('vision_it_model_v3', json);
+
+        status.innerText = '✅ Aprendizaje guardado en memoria';
+        status.style.color = '#2dd4bf';
+        saveBtn.innerText = 'Guardado con éxito';
+        saveBtn.style.background = '#059669';
+
+        setTimeout(() => {
+            saveBtn.innerText = 'Guardar Aprendizaje';
+            saveBtn.disabled = false;
+            saveBtn.style.background = '';
+            status.style.color = '';
+        }, 3000);
+
+    } catch (err) {
+        console.error('Error al guardar:', err);
+        status.innerText = '❌ Error: Memoria llena o bloqueada';
+        saveBtn.innerText = 'Reintentar Guardar';
+        saveBtn.disabled = false;
+    }
 }
 
 function loadModel() {
@@ -121,9 +147,10 @@ function loadModel() {
 
         classifier.setClassifierDataset(tensors);
         updateUIFeedback();
-        status.innerText = 'Memoria restaurada';
+        status.innerText = '📦 Aprendizaje restaurado (IA Lista)';
     } catch (err) {
         console.error('Error loading model:', err);
+        status.innerText = 'Error al cargar memoria previa';
     }
 }
 
