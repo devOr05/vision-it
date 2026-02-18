@@ -11,6 +11,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+    <!-- PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 
 <body>
@@ -56,14 +59,16 @@
 
             <!-- Info & Controls Section -->
             <section class="info-panel">
-                <div class="panel-section">
-                    <h3>Detectados</h3>
-                    <div id="labels-container" class="labels-grid">
-                        <!-- Labels will appear here -->
-                    </div>
-                </div>
-
                 <div class="panel-section actions">
+                    <button id="main-train-toggle" class="btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="margin-right: 8px;">
+                            <path
+                                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                        </svg>
+                        Entrenamiento IA
+                    </button>
                     <button id="capture-btn" class="btn-secondary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -74,49 +79,18 @@
                         </svg>
                         Capturar
                     </button>
+                </div>
 
-                    <div class="training-status-card">
-                        <h4>Estado del Sistema</h4>
-                        <p id="ai-mode-text">Modo: Estándar (Inspección General)</p>
-                        <div id="custom-prediction" class="custom-prediction-box hidden">
-                            Identificación: <span id="custom-label">---</span>
-                        </div>
+                <div class="training-status-card">
+                    <h4>Estado del Sistema</h4>
+                    <p id="ai-mode-text">Modo: Estándar</p>
+                    <div id="custom-prediction" class="custom-prediction-box hidden">
+                        Identificación: <span id="custom-label">---</span>
                     </div>
                 </div>
-            </section>
-        </main>
 
-        <!-- Settings Drawer -->
-        <div id="settings-drawer" class="drawer">
-            <div class="drawer-header">
-                <h3>Configuración y Entrenamiento</h3>
-                <button id="close-settings" class="close-btn">&times;</button>
-            </div>
-            <div class="drawer-body">
-                <div class="control-group">
-                    <label>Sensibilidad de Detección: <span id="conf-val">60</span>%</label>
-                    <input type="range" id="conf-slider" min="20" max="95" value="60">
-                </div>
-                <div class="control-group">
-                    <label class="switch-label">
-                        <input type="checkbox" id="speech-toggle">
-                        <span>Notificación por Voz</span>
-                    </label>
-                </div>
-
-                <div class="control-group">
-                    <label class="switch-label">
-                        <input type="checkbox" id="count-mode-toggle">
-                        <span>Modo Contador (Grid Analysis)</span>
-                    </label>
-                </div>
-
-                <hr>
-
-                <div class="training-section">
-                    <h4>Clasificación Personalizada</h4>
-                    <p>Defina nombres y mantenga presionado para capturar muestras:</p>
-
+                <div id="main-training-panel" class="panel-section training-panel hidden">
+                    <h3>Entrenamiento</h3>
                     <div class="train-input-group">
                         <div class="train-item">
                             <div class="train-meta">
@@ -155,13 +129,89 @@
                             <div id="gallery-2" class="sample-gallery"></div>
                         </div>
                     </div>
-
                     <div class="train-actions">
                         <button id="train-mode-btn" class="btn-outline">Activar IA Personalizada</button>
                         <button id="save-model-btn" class="btn-primary" style="margin-top: 10px;">Guardar
                             Aprendizaje</button>
-                        <button id="reset-training" class="btn-danger-link">Reiniciar Base de Datos</button>
                     </div>
+                </div>
+
+                <div class="panel-section reporting-panel">
+                    <h3>Reporte de Producción</h3>
+                    <div class="report-inputs">
+                        <div class="input-field">
+                            <label>Nº de Lote</label>
+                            <input type="text" id="batch-number" placeholder="Ej: LOTE-2024-001">
+                        </div>
+                        <div class="input-field">
+                            <label>Descripción</label>
+                            <input type="text" id="batch-desc" placeholder="Descripción del producto">
+                        </div>
+                    </div>
+                    <button id="generate-pdf-btn" class="btn-accent" style="width: 100%; margin-top: 1rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="margin-right: 8px;">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                        Generar Reporte PDF
+                    </button>
+                </div>
+
+                <div class="panel-section log-section">
+                    <h3>Historial de Jornada</h3>
+                    <div class="log-container">
+                        <table id="production-log">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Objeto</th>
+                                    <th>Estado</th>
+                                    <th>Código</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-body">
+                                <!-- Entries will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Settings Drawer -->
+        <div id="settings-drawer" class="drawer">
+            <div class="drawer-header">
+                <h3>Ajustes Técnicos</h3>
+                <button id="close-settings" class="close-btn">&times;</button>
+            </div>
+            <div class="drawer-body">
+                <div class="control-group">
+                    <label>Sensibilidad de Detección: <span id="conf-val">60</span>%</label>
+                    <input type="range" id="conf-slider" min="20" max="95" value="60">
+                </div>
+                <div class="control-group">
+                    <label class="switch-label">
+                        <input type="checkbox" id="speech-toggle">
+                        <span>Notificación por Voz</span>
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <label class="switch-label">
+                        <input type="checkbox" id="count-mode-toggle">
+                        <span>Modo Contador (Grid Analysis)</span>
+                    </label>
+                </div>
+
+                <hr>
+
+                <div class="settings-actions">
+                    <button id="reset-training" class="btn-danger-link">Reiniciar Base de Datos</button>
                 </div>
             </div>
         </div>

@@ -34,6 +34,10 @@ const galleries = [
     document.getElementById('gallery-2')
 ];
 
+let detectionHistory = []; // For PDF report
+let lastLogTime = 0;
+let lastLoggedClass = -1;
+
 let model;
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
@@ -119,6 +123,8 @@ async function saveModel() {
             saveBtn.disabled = false;
             saveBtn.style.background = '';
             status.style.color = '';
+            // Close settings drawer if open
+            settingsDrawer.classList.remove('active');
         }, 3000);
 
     } catch (err) {
@@ -213,6 +219,98 @@ function speak(text) {
     window.speechSynthesis.speak(u);
     lastSpoken = text;
     lastSpokenTime = now;
+}
+
+function logDetection(label, classIndex) {
+    const now = Date.now();
+    // Cooldown 2 seconds for same object to avoid log spam
+    if (now - lastLogTime < 2000 && classIndex === lastLoggedClass) return;
+
+    const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const code = 'VIT-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    const statusText = classIndex === 2 ? 'FONDO' : 'OK';
+    const statusClass = classIndex === 2 ? '' : 'status-ok';
+
+    detectionHistory.push({
+        time: timeStr,
+        label: label,
+        status: statusText,
+        code: code
+    });
+
+    const body = document.getElementById('log-body');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${timeStr}</td>
+        <td><strong>${label}</strong></td>
+        <td><span class="${statusClass}">${statusText}</span></td>
+        <td><code style="font-size:0.7rem">${code}</code></td>
+    `;
+    body.prepend(row);
+
+    // Limit log rows to 50
+    if (body.children.length > 50) body.lastChild.remove();
+
+    lastLogTime = now;
+    lastLoggedClass = classIndex;
+}
+
+async function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const batchNum = document.getElementById('batch-number').value || 'S/N';
+    const batchDesc = document.getElementById('batch-desc').value || 'Sin descripción';
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(56, 189, 248);
+    doc.text('REPORTE DE PRODUCCIÓN - VISIÓN IT', 14, 20);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()} | Generado por: Vision IT IA`, 14, 28);
+
+    // Batch Info
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(`Nº de Lote: ${batchNum}`, 14, 40);
+    doc.text(`Descripción: ${batchDesc}`, 14, 47);
+
+    // Summary table
+    const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
+    const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
+    const counts = [0, 0];
+    detectionHistory.forEach(d => {
+        if (d.label === name0) counts[0]++;
+        if (d.label === name1) counts[1]++;
+    });
+
+    doc.autoTable({
+        startY: 55,
+        head: [['Categoría', 'Cantidad Detectada', 'Estado']],
+        body: [
+            [name0, counts[0], 'Completado'],
+            [name1, counts[1], 'Completado'],
+            ['TOTAL PRODUCCIÓN', counts[0] + counts[1], 'FINALIZADO']
+        ],
+        theme: 'striped',
+        headStyles: { fillStyle: [56, 189, 248] }
+    });
+
+    // History table
+    doc.text('Desglose de Detecciones:', 14, doc.lastAutoTable.finalY + 15);
+
+    const tableData = detectionHistory.map(d => [d.time, d.label, d.status, d.code]);
+
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [['Hora', 'Elemento', 'Estado', 'Código Verificación']],
+        body: tableData,
+        theme: 'grid'
+    });
+
+    doc.save(`reporte-produccion-${batchNum}-${Date.now()}.pdf`);
 }
 
 function drawGrid(ctx) {
@@ -328,7 +426,10 @@ async function detect() {
                     ctx.strokeStyle = '#2dd4bf';
                     ctx.lineWidth = 12;
                     ctx.strokeRect(canvas.width * 0.02, canvas.height * 0.02, canvas.width * 0.96, canvas.height * 0.96);
-                    if (labelIndex !== 2) speak(`Viendo: ${label}`);
+                    if (labelIndex !== 2) {
+                        speak(`Viendo: ${label}`);
+                        logDetection(label, labelIndex);
+                    }
                 } else {
                     customLabel.innerText = 'Escaneando...';
                 }
@@ -417,6 +518,15 @@ trainModeBtn.addEventListener('click', () => {
         customPredBox.classList.add('hidden');
     }
 });
+
+document.getElementById('main-train-toggle').addEventListener('click', () => {
+    const panel = document.getElementById('main-training-panel');
+    panel.classList.toggle('hidden');
+    const isActive = !panel.classList.contains('hidden');
+    document.getElementById('main-train-toggle').classList.toggle('recording', isActive);
+});
+
+document.getElementById('generate-pdf-btn').addEventListener('click', generatePDF);
 
 saveModelBtn.addEventListener('click', saveModel);
 
