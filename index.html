@@ -16,72 +16,88 @@
 <body>
     <div class="app-container">
         <header>
-            <div class="logo">Visión IT</div>
+            <div class="logo">Visión IT Dashboard</div>
             <div class="header-actions">
-                <button id="open-settings" class="icon-btn">⚙️</button>
+                <button id="toggle-camera" class="icon-btn" title="Cambiar Cámara">🔄</button>
+                <button id="open-settings" class="icon-btn" title="Ajustes">⚙️</button>
             </div>
             <div id="status" class="status">Cargando...</div>
         </header>
 
-        <div class="main-view">
-            <video id="video" autoplay playsinline muted></video>
-            <canvas id="canvas"></canvas>
+        <main class="dashboard-layout">
+            <!-- Camera Section -->
+            <section class="camera-wall">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="canvas"></canvas>
 
-            <div class="overlay">
-                <div class="counter-badge">
-                    <span id="count-num">0</span> objetos
-                </div>
-                <button id="capture-btn" class="capture-btn">📸</button>
-            </div>
-
-            <!-- Settings Drawer -->
-            <div id="settings-drawer" class="drawer">
-                <div class="drawer-header">
-                    <h3>Ajustes</h3>
-                    <button id="close-settings" class="close-btn">&times;</button>
-                </div>
-                <div class="drawer-body">
-                    <div class="control-group">
-                        <label>Filtro de Confianza: <span id="conf-val">60</span>%</label>
-                        <input type="range" id="conf-slider" min="20" max="95" value="60">
+                <div class="camera-overlay">
+                    <div class="counter-badge">
+                        <span id="count-num">0</span> objetos
                     </div>
-                    <div class="control-group">
-                        <label class="switch-label">
-                            <input type="checkbox" id="speech-toggle">
-                            <span>Voz (Lectura de objetos)</span>
-                        </label>
-                    </div>
-                    <hr>
-                    <div class="training-group">
-                        <h4>Entrenamiento en Vivo</h4>
-                        <p>Enseña a la IA nuevos objetos usando MobileNet y KNN.</p>
-                        <button id="train-mode-btn" class="btn-outline">Modo Entrenamiento: OFF</button>
+                </div>
+            </section>
 
-                        <div id="train-ui" class="hidden">
-                            <div class="train-controls">
-                                <button id="add-class-0" class="btn-train">Objeto 1 (Añadir)</button>
-                                <button id="add-class-1" class="btn-train">Objeto 2 (Añadir)</button>
-                                <button id="add-class-2" class="btn-train">Fondo / Nada</button>
-                            </div>
-                            <button id="reset-training" class="btn-danger">Borrar Aprendizaje</button>
+            <!-- Info & Controls Section -->
+            <section class="info-panel">
+                <div class="panel-section">
+                    <h3>Detectados</h3>
+                    <div id="labels-container" class="labels-grid">
+                        <!-- Labels will appear here -->
+                    </div>
+                </div>
+
+                <div class="panel-section actions">
+                    <button id="capture-btn" class="btn-secondary">📸 Capturar Foto</button>
+
+                    <div class="training-status-card">
+                        <h4>Estado de Inteligencia</h4>
+                        <p id="ai-mode-text">Modo: Estándar (COCO-SSD)</p>
+                        <div id="custom-prediction" class="custom-prediction-box hidden">
+                            Predicción: <span id="custom-label">---</span>
                         </div>
                     </div>
-                    <hr>
-                    <div class="training-group">
-                        <h4>Preparar para Entrenamiento</h4>
+                </div>
+            </section>
+        </main>
+
+        <!-- Settings Drawer (Bottom for mobile, side for desktop) -->
+        <div id="settings-drawer" class="drawer">
+            <div class="drawer-header">
+                <h3>Ajustes & Entrenamiento</h3>
+                <button id="close-settings" class="close-btn">&times;</button>
+            </div>
+            <div class="drawer-body">
+                <div class="control-group">
+                    <label>Filtro de Confianza: <span id="conf-val">60</span>%</label>
+                    <input type="range" id="conf-slider" min="20" max="95" value="60">
+                </div>
+                <div class="control-group">
+                    <label class="switch-label">
+                        <input type="checkbox" id="speech-toggle">
+                        <span>Voz (Lectura de objetos)</span>
+                    </label>
+                </div>
+
+                <hr>
+
+                <div class="training-section">
+                    <h4>Reconocimiento Personalizado</h4>
+                    <p>Mantén presionado para enseñar a la IA:</p>
+                    <div class="train-controls">
+                        <button id="add-class-0" class="btn-train">🎁 Objeto 1</button>
+                        <button id="add-class-1" class="btn-train">🥤 Objeto 2</button>
+                        <button id="add-class-2" class="btn-train">🏠 Fondo</button>
+                    </div>
+                    <div class="train-actions">
+                        <button id="train-mode-btn" class="btn-outline">Activar Entrenamiento</button>
+                        <button id="reset-training" class="btn-danger-link">Limpiar Cerebro</button>
                     </div>
                 </div>
             </div>
-
-            <footer>
-                <div id="labels-container" class="labels">
-                    <!-- Labels will appear here -->
-                </div>
-                <button id="toggle-camera" class="btn-primary">Cambiando Cámara...</button>
-            </footer>
         </div>
+    </div>
 
-        <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 
 </html>
