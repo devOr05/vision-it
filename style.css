@@ -50,6 +50,196 @@ header {
     -webkit-text-fill-color: transparent;
 }
 
+/* Drawer Styles */
+.drawer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--bg-dark);
+    border-top: 2px solid var(--primary);
+    border-radius: 24px 24px 0 0;
+    padding: 2rem;
+    z-index: 100;
+    transform: translateY(100%);
+    transition: var(--transition-smooth);
+    backdrop-filter: blur(20px);
+}
+
+.drawer.active {
+    transform: translateY(0);
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+.control-group {
+    margin-bottom: 1.5rem;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--primary);
+}
+
+.switch-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid var(--glass-border);
+    margin: 2rem 0;
+}
+
+.training-group h4 {
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+}
+
+.training-group p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.btn-outline {
+    background: none;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 0.8rem;
+    border-radius: 12px;
+    width: 100%;
+    cursor: pointer;
+}
+
+#collection-ui.hidden {
+    display: none;
+}
+
+#collection-ui {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#object-label {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 0.8rem;
+    border-radius: 8px;
+}
+
+.btn-small {
+    background: var(--accent);
+    border: none;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.train-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.btn-train {
+    background: var(--glass);
+    border: 1px solid var(--primary);
+    color: var(--text-main);
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.btn-train:active {
+    background: var(--primary);
+    color: #000;
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    padding: 0.5rem;
+    border-radius: 8px;
+    width: 100%;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+#train-ui.hidden {
+    display: none;
+}
+
+/* Capture button */
+.capture-btn {
+    background: #fff;
+    border: none;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: transform 0.2s;
+}
+
+.capture-btn:active {
+    transform: scale(0.9);
+}
+
+/* Animations */
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: transform 0.2s;
+}
+
+.icon-btn:active {
+    transform: scale(0.9);
+}
+
 .status {
     font-size: 0.8rem;
     color: var(--primary);

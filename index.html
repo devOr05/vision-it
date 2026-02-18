@@ -6,16 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Visión IT | Detector en Tiempo Real</title>
     <link rel="stylesheet" href="style.css">
-    <!-- TensorFlow.js and COCO-SSD -->
+    <!-- TensorFlow.js and Models -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
 </head>
 
 <body>
     <div class="app-container">
         <header>
             <div class="logo">Visión IT</div>
-            <div id="status" class="status">Cargando inteligencia...</div>
+            <div class="header-actions">
+                <button id="open-settings" class="icon-btn">⚙️</button>
+            </div>
+            <div id="status" class="status">Cargando...</div>
         </header>
 
         <div class="main-view">
@@ -26,18 +31,57 @@
                 <div class="counter-badge">
                     <span id="count-num">0</span> objetos
                 </div>
+                <button id="capture-btn" class="capture-btn">📸</button>
             </div>
+
+            <!-- Settings Drawer -->
+            <div id="settings-drawer" class="drawer">
+                <div class="drawer-header">
+                    <h3>Ajustes</h3>
+                    <button id="close-settings" class="close-btn">&times;</button>
+                </div>
+                <div class="drawer-body">
+                    <div class="control-group">
+                        <label>Filtro de Confianza: <span id="conf-val">60</span>%</label>
+                        <input type="range" id="conf-slider" min="20" max="95" value="60">
+                    </div>
+                    <div class="control-group">
+                        <label class="switch-label">
+                            <input type="checkbox" id="speech-toggle">
+                            <span>Voz (Lectura de objetos)</span>
+                        </label>
+                    </div>
+                    <hr>
+                    <div class="training-group">
+                        <h4>Entrenamiento en Vivo</h4>
+                        <p>Enseña a la IA nuevos objetos usando MobileNet y KNN.</p>
+                        <button id="train-mode-btn" class="btn-outline">Modo Entrenamiento: OFF</button>
+
+                        <div id="train-ui" class="hidden">
+                            <div class="train-controls">
+                                <button id="add-class-0" class="btn-train">Objeto 1 (Añadir)</button>
+                                <button id="add-class-1" class="btn-train">Objeto 2 (Añadir)</button>
+                                <button id="add-class-2" class="btn-train">Fondo / Nada</button>
+                            </div>
+                            <button id="reset-training" class="btn-danger">Borrar Aprendizaje</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="training-group">
+                        <h4>Preparar para Entrenamiento</h4>
+                    </div>
+                </div>
+            </div>
+
+            <footer>
+                <div id="labels-container" class="labels">
+                    <!-- Labels will appear here -->
+                </div>
+                <button id="toggle-camera" class="btn-primary">Cambiando Cámara...</button>
+            </footer>
         </div>
 
-        <footer>
-            <div id="labels-container" class="labels">
-                <!-- Labels will appear here -->
-            </div>
-            <button id="toggle-camera" class="btn-primary">Cambiando Cámara...</button>
-        </footer>
-    </div>
-
-    <script src="script.js"></script>
+        <script src="script.js"></script>
 </body>
 
 </html>
