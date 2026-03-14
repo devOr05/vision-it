@@ -84,15 +84,21 @@ async function setupCamera() {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
 
-        return new Promise((resolve) => {
-            video.onloadeddata = () => {
-                video.play();
-                resolve(video);
+        return new Promise((resolve, reject) => {
+            const onReady = () => {
+                video.play().then(() => resolve(video)).catch(reject);
             };
+            if (video.readyState >= 3) onReady();
+            else video.onloadeddata = onReady;
+
+            // Timeout safety for camera
+            setTimeout(() => reject('Timeout de cámara'), 5000);
         });
     } catch (err) {
-        status.innerText = 'Cámara bloqueada';
         console.error(err);
+        if (err.name === 'NotAllowedError') status.innerText = 'Cámara bloqueada (permiso denegado)';
+        else status.innerText = 'Error de Cámara';
+        throw err;
     }
 }
 
@@ -211,10 +217,9 @@ async function loadModels() {
         classifier = knnClassifier.create();
 
         loadModel();
-        status.innerText = 'IA Activa';
     } catch (err) {
-        status.innerText = 'Error de conexión';
         console.error(err);
+        throw err;
     }
 }
 
@@ -620,7 +625,22 @@ toggleCamBtn.addEventListener('click', async () => {
 
 // Final Initialization
 (async () => {
-    await setupCamera();
-    await loadModels();
-    detect();
+    status.innerText = 'Inicializando IA y Cámara...';
+    try {
+        // Parallel load
+        const [camVideo, _] = await Promise.all([
+            setupCamera(),
+            loadModels()
+        ]);
+
+        status.innerText = 'IA y Cámara Listas';
+        status.style.color = '#2dd4bf';
+        detect();
+    } catch (err) {
+        console.error('Core Init Failed:', err);
+        if (!status.innerText.includes('Cámara')) {
+            status.innerText = 'Error de conexión / Modelos';
+        }
+        status.style.color = '#ef4444';
+    }
 })();
