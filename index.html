@@ -58,7 +58,7 @@
             </section>
 
             <!-- Info & Controls Section -->
-            <section class="info-panel">
+            <section class="info-panel demo-hidden">
                 <div class="panel-section actions">
                     <button id="main-train-toggle" class="btn-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -181,6 +181,29 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Detection Feedback Overlay (Demo Mode) -->
+            <div id="detection-overlay" class="detection-overlay hidden">
+                <div class="overlay-content">
+                    <div class="overlay-header">
+                        <span class="pulse-icon"></span>
+                        <h3>OBJETO DETECTADO</h3>
+                    </div>
+                    <div class="overlay-body">
+                        <div class="info-row">
+                            <span class="label">Producto:</span>
+                            <span id="overlay-product" class="value">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Confianza:</span>
+                            <span id="overlay-conf" class="value">0%</span>
+                        </div>
+                        <div class="info-row status-row">
+                            <span id="overlay-status" class="status-msg">Escaneando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- Settings Drawer -->
@@ -210,8 +233,35 @@
 
                 <hr>
 
+                <div class="control-group">
+                    <label>Configuración Telegram</label>
+                    <input type="password" id="tg-token" placeholder="Bot Token (12345:ABC...)" class="settings-input">
+                    <input type="text" id="tg-chatid" placeholder="Chat ID (Ej: -100123...)" class="settings-input" style="margin-top: 8px;">
+                </div>
+
+                <div class="control-group">
+                    <label>Objeto Objetivo (COCO-SSD)</label>
+                    <select id="target-class-select" class="settings-input">
+                        <option value="cell phone">Celular (cell phone)</option>
+                        <option value="bottle">Botella (bottle)</option>
+                        <option value="person">Persona (person)</option>
+                        <option value="cup">Taza (cup)</option>
+                        <option value="laptop">Laptop/PC</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="switch-label">
+                        <input type="checkbox" id="demo-mode-toggle" checked>
+                        <span>Modo Enfoque (Demo)</span>
+                    </label>
+                </div>
+
+                <hr>
+
                 <div class="settings-actions">
                     <button id="reset-training" class="btn-danger-link">Reiniciar Base de Datos</button>
+                    <button id="toggle-advanced-ui" class="btn-outline" style="width: 100%; margin-top: 10px; font-size: 0.7rem;">Mostrar Paneles Avanzados</button>
                 </div>
             </div>
         </div>

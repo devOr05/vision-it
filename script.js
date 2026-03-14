@@ -2,7 +2,8 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const status = document.getElementById('status');
 const countNum = document.getElementById('count-num');
-const labelsContainer = document.getElementById('labels-container');
+const labelsContainer = document.createElement('div'); // Dummy container to avoid errors
+labelsContainer.id = 'labels-container';
 const toggleCamBtn = document.getElementById('toggle-camera');
 
 // UI Elements
@@ -48,6 +49,17 @@ let isTrainingMode = false;
 let isCountingMode = false;
 let lastSpoken = "";
 let lastSpokenTime = 0;
+
+// Demo Mode & Telegram Config
+let isDemoMode = true;
+let targetClass = 'cell phone';
+let telegramToken = '';
+let telegramChatId = '';
+let isNotifyingTelegram = false;
+let lastTelegramTargetTime = 0;
+let telegramCooldown = 30000; // 30s between photos
+let targetDetectionStartTime = 0;
+let detectionRequiredTime = 800; // 0.8s of stable detection
 
 let classSampleCounts = [0, 0, 0];
 let classThumbnails = [[], [], []];
@@ -123,7 +135,6 @@ async function saveModel() {
             saveBtn.disabled = false;
             saveBtn.style.background = '';
             status.style.color = '';
-            // Close settings drawer if open
             settingsDrawer.classList.remove('active');
         }, 3000);
 
@@ -223,7 +234,6 @@ function speak(text) {
 
 function logDetection(label, classIndex) {
     const now = Date.now();
-    // Cooldown 2 seconds for same object to avoid log spam
     if (now - lastLogTime < 2000 && classIndex === lastLoggedClass) return;
 
     const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -239,20 +249,64 @@ function logDetection(label, classIndex) {
     });
 
     const body = document.getElementById('log-body');
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>${timeStr}</td>
-        <td><strong>${label}</strong></td>
-        <td><span class="${statusClass}">${statusText}</span></td>
-        <td><code style="font-size:0.7rem">${code}</code></td>
-    `;
-    body.prepend(row);
-
-    // Limit log rows to 50
-    if (body.children.length > 50) body.lastChild.remove();
+    if (body) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${timeStr}</td>
+            <td><strong>${label}</strong></td>
+            <td><span class="${statusClass}">${statusText}</span></td>
+            <td><code style="font-size:0.7rem">${code}</code></td>
+        `;
+        body.prepend(row);
+        if (body.children.length > 50) body.lastChild.remove();
+    }
 
     lastLogTime = now;
     lastLoggedClass = classIndex;
+}
+
+async function sendTelegramPhoto(imageData, label, score) {
+    if (!telegramToken || !telegramChatId || isNotifyingTelegram) return;
+
+    const now = Date.now();
+    if (now - lastTelegramTargetTime < telegramCooldown) return;
+
+    isNotifyingTelegram = true;
+    const statusMsg = document.getElementById('overlay-status');
+    statusMsg.innerText = '📤 Enviando a Telegram...';
+    statusMsg.style.color = '#38bdf8';
+
+    try {
+        const blob = await (await fetch(imageData)).blob();
+        const formData = new FormData();
+        formData.append('chat_id', telegramChatId);
+        formData.append('photo', blob, 'deteccion.jpg');
+        formData.append('caption', `🚀 Visión IT - Objeto Detectado\n\n📦 Producto: ${label}\n🎯 Precisión: ${Math.round(score * 100)}%\n⏰ Hora: ${new Date().toLocaleTimeString()}\n#VisionIT #Demo`);
+
+        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendPhoto`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            statusMsg.innerText = '✅ Imagen enviada';
+            statusMsg.style.color = '#2dd4bf';
+            lastTelegramTargetTime = now;
+        } else {
+            statusMsg.innerText = '❌ Error API Telegram';
+            statusMsg.style.color = '#ef4444';
+        }
+    } catch (err) {
+        console.error('Telegram Error:', err);
+        statusMsg.innerText = '⚠️ Error de Red';
+    } finally {
+        setTimeout(() => {
+            isNotifyingTelegram = false;
+            if (statusMsg.innerText.includes('enviada')) {
+                statusMsg.innerText = 'A la espera de nueva detección...';
+            }
+        }, 3000);
+    }
 }
 
 async function generatePDF() {
@@ -262,7 +316,6 @@ async function generatePDF() {
     const batchNum = document.getElementById('batch-number').value || 'S/N';
     const batchDesc = document.getElementById('batch-desc').value || 'Sin descripción';
 
-    // Header
     doc.setFontSize(22);
     doc.setTextColor(56, 189, 248);
     doc.text('REPORTE DE PRODUCCIÓN - VISIÓN IT', 14, 20);
@@ -271,13 +324,11 @@ async function generatePDF() {
     doc.setTextColor(100);
     doc.text(`Fecha: ${new Date().toLocaleDateString()} | Generado por: Vision IT IA`, 14, 28);
 
-    // Batch Info
     doc.setFontSize(12);
     doc.setTextColor(0);
     doc.text(`Nº de Lote: ${batchNum}`, 14, 40);
     doc.text(`Descripción: ${batchDesc}`, 14, 47);
 
-    // Summary table
     const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
     const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
     const counts = [0, 0];
@@ -297,9 +348,6 @@ async function generatePDF() {
         theme: 'striped',
         headStyles: { fillStyle: [56, 189, 248] }
     });
-
-    // History table
-    doc.text('Desglose de Detecciones:', 14, doc.lastAutoTable.finalY + 15);
 
     const tableData = detectionHistory.map(d => [d.time, d.label, d.status, d.code]);
 
@@ -343,44 +391,62 @@ async function detect() {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- SHARED DETECTION VALUES ---
     let cocoDetectedCount = 0;
     const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
     const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
     const name2 = document.getElementById('name-class-2').value || 'Fondo';
     const classes = [name0, name1, name2];
 
-    // 1. RUN STANDARD COCO-SSD (Always if not in exclusive counting mode)
-    if (!isCountingMode || !isTrainingMode) {
-        const predictions = await model.detect(video);
-        const filtered = predictions.filter(p => p.score >= confidenceThreshold);
-        cocoDetectedCount = filtered.length;
-        labelsContainer.innerHTML = '';
+    const predictions = await model.detect(video);
+    const filtered = predictions.filter(p => p.score >= confidenceThreshold);
+    cocoDetectedCount = filtered.length;
 
+    // --- DEMO MODE TARGETING ---
+    if (isDemoMode) {
+        const targets = filtered.filter(p => p.class === targetClass);
+        const overlay = document.getElementById('detection-overlay');
+
+        if (targets.length > 0) {
+            const bestTarget = targets.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+            document.getElementById('overlay-product').innerText = bestTarget.class.toUpperCase();
+            document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
+            overlay.classList.remove('hidden');
+
+            if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
+
+            if (Date.now() - targetDetectionStartTime > detectionRequiredTime) {
+                if (!isNotifyingTelegram && (Date.now() - lastTelegramTargetTime > telegramCooldown)) {
+                    const screenshot = captureForTelegram();
+                    sendTelegramPhoto(screenshot, bestTarget.class, bestTarget.score);
+                }
+            }
+
+            const [x, y, w, h] = bestTarget.bbox;
+            ctx.strokeStyle = '#2dd4bf';
+            ctx.lineWidth = 5;
+            ctx.strokeRect(x, y, w, h);
+        } else {
+            overlay.classList.add('hidden');
+            targetDetectionStartTime = 0;
+        }
+    } else {
         filtered.forEach(prediction => {
             const [x, y, width, height] = prediction.bbox;
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 3;
             ctx.strokeRect(x, y, width, height);
-
-            const tag = document.createElement('div');
-            tag.className = 'label-tag';
-            tag.innerHTML = `<strong>${prediction.class}</strong><span>${Math.round(prediction.score * 100)}%</span>`;
-            labelsContainer.appendChild(tag);
         });
     }
 
     // 2. RUN CUSTOM IA (If trained)
     if (isTrainingMode && classifier.getNumClasses() > 0) {
         if (isCountingMode) {
-            // --- TILED COUNTING MODE ---
             drawGrid(ctx);
             const cols = 4;
             const rows = 4;
             const tw = video.videoWidth / cols;
             const th = video.videoHeight / rows;
             let totalCount = 0;
-
             const videoTensor = tf.browser.fromPixels(video);
 
             for (let y = 0; y < rows; y++) {
@@ -396,7 +462,6 @@ async function detect() {
                         ctx.beginPath();
                         ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 15, 0, Math.PI * 2);
                         ctx.fill();
-
                         ctx.fillStyle = "#fff";
                         ctx.font = "bold 14px sans-serif";
                         ctx.fillText(classes[parseInt(result.label)], (x * tw) + 5, (y * th) + 20);
@@ -407,10 +472,7 @@ async function detect() {
             }
             videoTensor.dispose();
             countNum.innerText = totalCount;
-            customLabel.innerText = `Total ${name0}/${name1}: ${totalCount}`;
-            customPredBox.classList.remove('hidden');
         } else {
-            // --- FULL FRAME CLASSIFICATION ---
             const img = tf.browser.fromPixels(video);
             const resized = tf.image.resizeBilinear(img, [224, 224]);
             const activation = featureExtractor.infer(resized, 'conv_preds');
@@ -423,30 +485,22 @@ async function detect() {
                 if (prob > confidenceThreshold) {
                     customLabel.innerText = `${label} (${Math.round(prob * 100)}%)`;
                     customPredBox.classList.remove('hidden');
-                    ctx.strokeStyle = '#2dd4bf';
-                    ctx.lineWidth = 12;
-                    ctx.strokeRect(canvas.width * 0.02, canvas.height * 0.02, canvas.width * 0.96, canvas.height * 0.96);
                     if (labelIndex !== 2) {
                         speak(`Viendo: ${label}`);
                         logDetection(label, labelIndex);
                     }
-                } else {
-                    customLabel.innerText = 'Escaneando...';
                 }
             } catch (e) { }
             img.dispose();
             resized.dispose();
-            countNum.innerText = cocoDetectedCount; // Balance count
         }
     } else {
         countNum.innerText = cocoDetectedCount;
-        customPredBox.classList.add('hidden');
     }
 
     requestAnimationFrame(detect);
 }
 
-// Training with Resizing
 async function addExample(classId) {
     const img = tf.browser.fromPixels(video);
     const resized = tf.image.resizeBilinear(img, [224, 224]);
@@ -456,8 +510,6 @@ async function addExample(classId) {
     resized.dispose();
 
     classSampleCounts[classId]++;
-
-    // Thumbnail Capture
     const thumbCanvas = document.createElement('canvas');
     thumbCanvas.width = 100;
     thumbCanvas.height = 100;
@@ -470,7 +522,6 @@ async function addExample(classId) {
     const base64 = thumbCanvas.toDataURL('image/jpeg', 0.6);
     classThumbnails[classId].push(base64);
     if (classThumbnails[classId].length > 8) classThumbnails[classId].shift();
-
     updateUIFeedback();
 }
 
@@ -512,22 +563,19 @@ trainModeBtn.addEventListener('click', () => {
     isTrainingMode = !isTrainingMode;
     trainModeBtn.innerText = isTrainingMode ? 'Desactivar IA Personalizada' : 'Activar IA Personalizada';
     aiModeText.innerText = isTrainingMode ? 'Modo: APRENDIZAJE / CONTEO' : 'Modo: Estándar (Inspección General)';
-    // Force standard count if custom off
     if (!isTrainingMode) {
-        labelsContainer.innerHTML = '';
         customPredBox.classList.add('hidden');
     }
 });
 
 document.getElementById('main-train-toggle').addEventListener('click', () => {
     const panel = document.getElementById('main-training-panel');
-    panel.classList.toggle('hidden');
-    const isActive = !panel.classList.contains('hidden');
+    if (panel) panel.classList.toggle('hidden');
+    const isActive = panel && !panel.classList.contains('hidden');
     document.getElementById('main-train-toggle').classList.toggle('recording', isActive);
 });
 
 document.getElementById('generate-pdf-btn').addEventListener('click', generatePDF);
-
 saveModelBtn.addEventListener('click', saveModel);
 
 resetTraining.addEventListener('click', () => {
@@ -552,6 +600,33 @@ captureBtn.addEventListener('click', () => {
     link.download = `captura-it-${Date.now()}.png`;
     link.href = tempCanvas.toDataURL('image/png');
     link.click();
+});
+
+function captureForTelegram() {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const tCtx = tempCanvas.getContext('2d');
+    tCtx.drawImage(video, 0, 0);
+    tCtx.drawImage(canvas, 0, 0);
+    return tempCanvas.toDataURL('image/jpeg', 0.8);
+}
+
+// Settings Listeners
+document.getElementById('tg-token').addEventListener('input', (e) => telegramToken = e.target.value);
+document.getElementById('tg-chatid').addEventListener('input', (e) => telegramChatId = e.target.value);
+document.getElementById('target-class-select').addEventListener('change', (e) => targetClass = e.target.value);
+document.getElementById('demo-mode-toggle').addEventListener('change', (e) => {
+    isDemoMode = e.target.checked;
+    document.querySelector('.dashboard-layout').classList.toggle('demo-mode', isDemoMode);
+    const panel = document.querySelector('.info-panel');
+    if (isDemoMode) panel.classList.add('demo-hidden');
+    else panel.classList.remove('demo-hidden');
+});
+
+document.getElementById('toggle-advanced-ui').addEventListener('click', () => {
+    const panel = document.querySelector('.info-panel');
+    panel.classList.toggle('demo-hidden');
 });
 
 toggleCamBtn.addEventListener('click', async () => {
