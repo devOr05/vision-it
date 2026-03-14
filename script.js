@@ -624,23 +624,20 @@ toggleCamBtn.addEventListener('click', async () => {
 });
 
 // Final Initialization
-(async () => {
-    status.innerText = 'Inicializando IA y Cámara...';
+async function init() {
+    status.innerText = 'Cargando Modelos de IA...';
     try {
-        // Parallel load
-        const [camVideo, _] = await Promise.all([
-            setupCamera(),
-            loadModels()
-        ]);
-
-        status.innerText = 'IA y Cámara Listas';
+        await loadModels();
+        status.innerText = 'Modelos Listos. Iniciando Cámara...';
+        await setupCamera();
+        status.innerText = 'Sistema Online';
         status.style.color = '#2dd4bf';
         detect();
     } catch (err) {
-        console.error('Core Init Failed:', err);
-        if (!status.innerText.includes('Cámara')) {
-            status.innerText = 'Error de conexión / Modelos';
-        }
+        console.error('Initialization Error:', err);
         status.style.color = '#ef4444';
+        // Detailed error is already set in setupCamera for specific cases
     }
-})();
+}
+
+init();
