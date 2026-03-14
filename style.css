@@ -114,6 +114,8 @@ header {
     background: rgba(56, 189, 248, 0.1);
     border: 1px solid rgba(56, 189, 248, 0.2);
     border-radius: 100px;
+    width: fit-content;
+    align-self: center;
 }
 
 /* Dashboard Layout */
