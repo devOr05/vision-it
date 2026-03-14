@@ -54,21 +54,27 @@ header {
 }
 
 .header-top {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
+    position: relative;
+    min-height: 40px;
 }
 
 .header-top .logo {
-    grid-column: 2;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
 }
 
 .header-top .header-actions {
-    grid-column: 3;
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+    margin-left: auto;
 }
 
 .logo {
@@ -207,37 +213,45 @@ header {
         flex-shrink: 0;
     }
 
-    /* Header: compact */
+    /* Header: compact for mobile */
     header {
-        padding: 0.6rem 1rem;
+        padding: 0.5rem 0.8rem;
         margin-bottom: 0.6rem;
-        flex-wrap: nowrap;
-        align-items: center;
     }
 
-    .logo {
-        font-size: 0.95rem;
-        flex-shrink: 1;
-        min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .header-top {
+        min-height: 44px;
     }
 
-    /* Status compact pill on the right */
-    .status {
-        font-size: 0.65rem;
-        padding: 0.18rem 0.6rem;
+    .header-top .logo {
+        font-size: 1rem;
+        font-weight: 800;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
         white-space: nowrap;
-        flex-shrink: 0;
-        order: 0;
-        width: auto;
-        text-align: right;
+        pointer-events: none;
     }
 
     .header-actions {
         flex-shrink: 0;
         gap: 6px;
+    }
+
+    .icon-btn {
+        padding: 0.45rem;
+        border-radius: 10px;
+    }
+
+    /* Status pill: centered below header-top */
+    .status {
+        display: block;
+        text-align: center;
+        font-size: 0.65rem;
+        padding: 0.18rem 0.8rem;
+        white-space: nowrap;
+        margin: 4px auto 0;
+        width: fit-content;
     }
 
     /* Camera fills most of the screen vertically */

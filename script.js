@@ -21,7 +21,7 @@ let model;
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
 let currentFacingMode = 'environment';
-let confidenceThreshold = 0.20;
+let confidenceThreshold = 0.10; // Lowered for better mobile detection
 let isSpeechEnabled = false;
 let isTrainingMode = false;
 let isCountingMode = false;
@@ -85,13 +85,20 @@ async function setupCamera() {
 function loadModel() { }
 function updateUIFeedback() { }
 
-// Model Loading
+// Model Loading — use mobilenet_v2 for better accuracy on mobile
 async function loadModels() {
     try {
-        model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        status.innerText = 'Cargando IA...';
+        model = await cocoSsd.load({ base: 'mobilenet_v2' });
     } catch (err) {
-        console.error(err);
-        throw err;
+        console.error('Model load error:', err);
+        // Fallback to lite if full model fails
+        try {
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        } catch (err2) {
+            console.error('Fallback model load error:', err2);
+            throw err2;
+        }
     }
 }
 
@@ -202,7 +209,12 @@ async function detect() {
     }
 
     const ctx = canvas.getContext('2d');
-    if (video.videoWidth) {
+    // Sync canvas size to actual video display size (critical for mobile portrait)
+    const rect = video.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+        canvas.width = video.videoWidth || rect.width;
+        canvas.height = video.videoHeight || rect.height;
+    } else if (video.videoWidth) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
     }
