@@ -13,8 +13,6 @@ const settingsDrawer = document.getElementById('settings-drawer');
 const confSlider = document.getElementById('conf-slider');
 const confVal = document.getElementById('conf-val');
 
-let detectionHistory = [];
-
 let detectionHistory = []; // For PDF report
 let lastLogTime = 0;
 let lastLoggedClass = -1;
