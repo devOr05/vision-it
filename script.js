@@ -376,6 +376,7 @@ document.getElementById('export-pdf-btn').addEventListener('click', generatePDFR
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
     await setupCamera();
+    status.innerText = 'Sistema Online';
 });
 
 // Final Initialization

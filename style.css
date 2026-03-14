@@ -25,8 +25,9 @@
 body {
     background-color: var(--bg-dark);
     color: var(--text-main);
-    overflow: hidden;
-    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100vh;
     width: 100vw;
 }
 
@@ -115,9 +116,11 @@ header {
 
 @media (max-width: 768px) {
     .dashboard-layout.demo-mode {
-        grid-template-columns: 1fr;
-        padding: 10px;
-        gap: 15px;
+        display: flex;
+        flex-direction: column;
+        padding: 5px;
+        gap: 10px;
+        overflow: visible;
     }
 
     header {
@@ -127,7 +130,7 @@ header {
     }
 
     .logo {
-        font-size: 1rem;
+        font-size: 1.1rem;
     }
 
     .status {
@@ -135,29 +138,27 @@ header {
         text-align: center;
         order: 3;
         font-size: 0.75rem;
-    }
-
-    .header-actions {
-        gap: 8px;
+        margin-top: 5px;
     }
 
     .counter-badge {
-        font-size: 0.75rem !important;
+        font-size: 0.8rem !important;
         padding: 8px 16px !important;
         top: 15px !important;
         left: 50% !important;
-        right: auto !important;
         transform: translateX(-50%) !important;
         position: absolute !important;
-    }
-
-    .feed-header {
-        margin-top: 10px;
+        width: fit-content !important;
+        white-space: nowrap;
     }
 
     .live-event-feed {
-        height: auto;
-        max-height: 400px;
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: 500px !important;
+        margin-top: 10px;
+        background: rgba(15, 23, 42, 0.8) !important;
     }
 }
 
