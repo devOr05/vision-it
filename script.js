@@ -61,18 +61,6 @@ let telegramCooldown = 30000; // 30s between photos
 let targetDetectionStartTime = 0;
 let detectionRequiredTime = 800; // 0.8s of stable detection
 let detectionCounter = 0; // Sequential ID for detections
-
-// Cached DOM Elements for performance
-const videoElement = document.getElementById('video');
-const canvasElement = document.getElementById('canvas');
-const overlayElement = document.getElementById('detection-overlay');
-const overlayProduct = document.getElementById('overlay-product');
-const overlayConf = document.getElementById('overlay-conf');
-const overlayStatus = document.getElementById('overlay-status');
-const tgTokenInput = document.getElementById('tg-token');
-const tgChatIdInput = document.getElementById('tg-chatid');
-const targetClassSelect = document.getElementById('target-class-select');
-
 let classSampleCounts = [0, 0, 0];
 let classThumbnails = [[], [], []];
 
@@ -300,14 +288,14 @@ function addEventToFeed(label, sentStatus = 'pending') {
 
     card.innerHTML = `
         <div class="event-info">
-            <span class="event-title">${label.toUpperCase()} #${currentId}</span>
+            <span class="event-title">${label} #${currentId}</span>
             <span class="event-time">${dateStr} - ${timeStr}</span>
         </div>
         <div class="event-status ${statusClass}">${statusText}</div>
     `;
 
     feed.prepend(card);
-    if (feed.children.length > 15) feed.lastChild.remove();
+    if (feed.children.length > 10) feed.lastChild.remove();
 }
 
 async function sendTelegramPhoto(imageData, label, score) {
@@ -430,27 +418,26 @@ async function detect() {
         return;
     }
 
-    const ctx = canvasElement.getContext('2d');
-    if (videoElement.videoWidth) {
-        if (canvasElement.width !== videoElement.videoWidth) {
-            canvasElement.width = videoElement.videoWidth;
-            canvasElement.height = videoElement.videoHeight;
-        }
+    const ctx = canvas.getContext('2d');
+    if (video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
     }
-    ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const predictions = await model.detect(videoElement);
+    const predictions = await model.detect(video);
     const filtered = predictions.filter(p => p.score >= confidenceThreshold);
 
     // --- DEMO MODE TARGETING ---
     if (isDemoMode) {
         const targets = filtered.filter(p => p.class === targetClass);
+        const overlay = document.getElementById('detection-overlay');
 
         if (targets.length > 0) {
             const bestTarget = targets.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-            overlayProduct.innerText = bestTarget.class.toUpperCase();
-            overlayConf.innerText = `${Math.round(bestTarget.score * 100)}%`;
-            overlayElement.classList.remove('hidden');
+            document.getElementById('overlay-product').innerText = bestTarget.class;
+            document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
+            overlay.classList.remove('hidden');
 
             if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
 
@@ -466,7 +453,7 @@ async function detect() {
             ctx.lineWidth = 5;
             ctx.strokeRect(x, y, w, h);
         } else {
-            overlayElement.classList.add('hidden');
+            overlay.classList.add('hidden');
             targetDetectionStartTime = 0;
         }
     } else {
@@ -476,66 +463,6 @@ async function detect() {
             ctx.lineWidth = 3;
             ctx.strokeRect(x, y, width, height);
         });
-    }
-
-    // 2. RUN CUSTOM IA (If trained)
-    if (isTrainingMode && classifier.getNumClasses() > 0) {
-        if (isCountingMode) {
-            drawGrid(ctx);
-            const cols = 4;
-            const rows = 4;
-            const tw = video.videoWidth / cols;
-            const th = video.videoHeight / rows;
-            let totalCount = 0;
-            const videoTensor = tf.browser.fromPixels(video);
-
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    const crop = videoTensor.slice([y * th, x * tw, 0], [th, tw, 3]);
-                    const resizedCrop = tf.image.resizeBilinear(crop, [224, 224]);
-                    const activation = featureExtractor.infer(resizedCrop, 'conv_preds');
-                    const result = await classifier.predictClass(activation);
-
-                    if (result.label !== "2" && result.confidences[result.label] > confidenceThreshold) {
-                        totalCount++;
-                        ctx.fillStyle = 'rgba(45, 212, 191, 0.6)';
-                        ctx.beginPath();
-                        ctx.arc((x * tw) + tw / 2, (y * th) + th / 2, 15, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.fillStyle = "#fff";
-                        ctx.font = "bold 14px sans-serif";
-                        ctx.fillText(classes[parseInt(result.label)], (x * tw) + 5, (y * th) + 20);
-                    }
-                    crop.dispose();
-                    resizedCrop.dispose();
-                }
-            }
-            videoTensor.dispose();
-            countNum.innerText = totalCount;
-        } else {
-            const img = tf.browser.fromPixels(video);
-            const resized = tf.image.resizeBilinear(img, [224, 224]);
-            const activation = featureExtractor.infer(resized, 'conv_preds');
-            try {
-                const result = await classifier.predictClass(activation);
-                const labelIndex = parseInt(result.label);
-                const label = classes[labelIndex];
-                const prob = result.confidences[result.label];
-
-                if (prob > confidenceThreshold) {
-                    customLabel.innerText = `${label} (${Math.round(prob * 100)}%)`;
-                    customPredBox.classList.remove('hidden');
-                    if (labelIndex !== 2) {
-                        speak(`Viendo: ${label}`);
-                        logDetection(label, labelIndex);
-                    }
-                }
-            } catch (e) { }
-            img.dispose();
-            resized.dispose();
-        }
-    } else {
-        countNum.innerText = cocoDetectedCount;
     }
 
     requestAnimationFrame(detect);

@@ -51,7 +51,7 @@
 
                     <div class="camera-overlay">
                         <div class="counter-badge">
-                            Detectando<span class="dot-ani">...</span>
+                            Detectando<span class="dot-ani"></span>
                         </div>
                     </div>
                 </div>
@@ -129,11 +129,7 @@
                             <div id="gallery-2" class="sample-gallery"></div>
                         </div>
                     </div>
-                    <div class="train-actions">
-                        <button id="train-mode-btn" class="btn-outline">Activar IA Personalizada</button>
-                        <button id="save-model-btn" class="btn-primary" style="margin-top: 10px;">Guardar
-                            Aprendizaje</button>
-                    </div>
+                    <!-- Reiniciar Base de Datos removed per request -->
                 </div>
 
                 <div class="panel-section reporting-panel">
@@ -246,33 +242,15 @@
                     </div>
                 </div>
 
-                <div class="control-group">
-                    <label>Objeto Objetivo (COCO-SSD)</label>
-                    <select id="target-class-select" class="settings-input">
-                        <option value="cell phone">Celular (cell phone)</option>
-                        <option value="bottle">Botella (bottle)</option>
-                        <option value="person">Persona (person)</option>
-                        <option value="cup">Taza (cup)</option>
-                        <option value="laptop">Laptop/PC</option>
-                    </select>
-                </div>
-
-                <div class="control-group">
-                    <label class="switch-label">
-                        <input type="checkbox" id="demo-mode-toggle" checked>
-                        <span>Modo Enfoque (Demo)</span>
-                    </label>
-                </div>
-
                 <hr>
+                <!-- Objeto Objetivo and Modo Enfoque removed per request -->
+            </div>
 
-                <div class="settings-actions">
-                    <button id="reset-training" class="btn-danger-link">Reiniciar Base de Datos</button>
-                    <button id="toggle-advanced-ui" class="btn-outline"
-                        style="width: 100%; margin-top: 10px; font-size: 0.7rem;">Mostrar Paneles Avanzados</button>
-                </div>
+            <div class="settings-actions">
+                <!-- Reiniciar and Advanced UI removed per request -->
             </div>
         </div>
+    </div>
     </div>
 
     <script src="script.js"></script>
