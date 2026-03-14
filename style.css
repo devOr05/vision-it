@@ -41,16 +41,22 @@ body {
 
 /* Header */
 header {
-    padding: 1rem 1.5rem;
+    padding: 0.8rem 1.2rem;
     background: var(--glass);
     backdrop-filter: blur(15px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
     z-index: 100;
     margin-bottom: 1rem;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .logo {

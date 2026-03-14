@@ -21,7 +21,7 @@ let model;
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
 let currentFacingMode = 'environment';
-let confidenceThreshold = 0.35;
+let confidenceThreshold = 0.20;
 let isSpeechEnabled = false;
 let isTrainingMode = false;
 let isCountingMode = false;
@@ -217,6 +217,12 @@ async function detect() {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Guard: don't run if video isn't ready
+    if (video.readyState < 2 || !video.videoWidth) {
+        requestAnimationFrame(detect);
+        return;
+    }
+
     const predictions = await model.detect(video);
     const filtered = predictions.filter(p => p.score >= confidenceThreshold);
 
@@ -258,11 +264,15 @@ async function detect() {
             targetDetectionStartTime = 0;
         }
     } else {
+        // Show all detections with label for visibility
         filtered.forEach(prediction => {
-            const [x, y, width, height] = prediction.bbox;
+            const [x, y, w, h] = prediction.bbox;
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, width, height);
+            ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = 'rgba(56,189,248,0.8)';
+            ctx.font = 'bold 14px Outfit';
+            ctx.fillText(`${prediction.class} ${Math.round(prediction.score * 100)}%`, x + 4, y + 18);
         });
     }
 
