@@ -54,9 +54,21 @@ header {
 }
 
 .header-top {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
+}
+
+.header-top .logo {
+    grid-column: 2;
+    text-align: center;
+}
+
+.header-top .header-actions {
+    grid-column: 3;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
 }
 
 .logo {

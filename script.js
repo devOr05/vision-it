@@ -88,16 +88,7 @@ function updateUIFeedback() { }
 // Model Loading
 async function loadModels() {
     try {
-        const [cocoRes, mobRes] = await Promise.all([
-            cocoSsd.load(),
-            mobilenet.load({ version: 2, alpha: 1.0 })
-        ]);
-
-        model = cocoRes;
-        featureExtractor = mobRes;
-        classifier = knnClassifier.create();
-
-        loadModel();
+        model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
     } catch (err) {
         console.error(err);
         throw err;
