@@ -21,7 +21,7 @@ let model;
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
 let currentFacingMode = 'environment';
-let confidenceThreshold = 0.6;
+let confidenceThreshold = 0.35;
 let isSpeechEnabled = false;
 let isTrainingMode = false;
 let isCountingMode = false;
@@ -37,7 +37,7 @@ let isNotifyingTelegram = false;
 let lastTelegramTargetTime = 0;
 let telegramCooldown = 30000; // 30s between photos
 let targetDetectionStartTime = 0;
-let detectionRequiredTime = 800; // 0.8s of stable detection
+let detectionRequiredTime = 400; // 0.4s of stable detection
 let detectionCounter = 0; // Sequential ID for detections
 let classSampleCounts = [0, 0, 0];
 let classThumbnails = [[], [], []];
