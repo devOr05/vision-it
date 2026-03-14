@@ -53,8 +53,8 @@ let lastSpokenTime = 0;
 // Demo Mode & Telegram Config
 let isDemoMode = true;
 let targetClass = 'cell phone';
-let telegramToken = '';
-let telegramChatId = '';
+let telegramToken = localStorage.getItem('tg_token') || '8535485891:AAEvAOiKwef-PlGffxwcJubUKYuB819sd90';
+let telegramChatId = localStorage.getItem('tg_chatid') || '1577936762';
 let isNotifyingTelegram = false;
 let lastTelegramTargetTime = 0;
 let telegramCooldown = 30000; // 30s between photos
@@ -265,6 +265,32 @@ function logDetection(label, classIndex) {
     lastLoggedClass = classIndex;
 }
 
+function addEventToFeed(label, sentStatus = 'pending') {
+    const feed = document.getElementById('event-list');
+    if (!feed) return;
+
+    // Remove empty message if exists
+    const emptyMsg = feed.querySelector('.empty-feed-msg');
+    if (emptyMsg) emptyMsg.remove();
+
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const statusText = sentStatus === 'sent' ? 'ENVIADO ✅' : 'DETECTADO';
+    const statusClass = sentStatus === 'sent' ? 'sent' : 'pending';
+
+    card.innerHTML = `
+        <div class="event-info">
+            <span class="event-title">${label}</span>
+            <span class="event-time">${timeStr}</span>
+        </div>
+        <div class="event-status ${statusClass}">${statusText}</div>
+    `;
+
+    feed.prepend(card);
+    if (feed.children.length > 10) feed.lastChild.remove();
+}
+
 async function sendTelegramPhoto(imageData, label, score) {
     if (!telegramToken || !telegramChatId || isNotifyingTelegram) return;
 
@@ -292,6 +318,7 @@ async function sendTelegramPhoto(imageData, label, score) {
             statusMsg.innerText = '✅ Imagen enviada';
             statusMsg.style.color = '#2dd4bf';
             lastTelegramTargetTime = now;
+            addEventToFeed(label, 'sent');
         } else {
             statusMsg.innerText = '❌ Error API Telegram';
             statusMsg.style.color = '#ef4444';
@@ -613,8 +640,24 @@ function captureForTelegram() {
 }
 
 // Settings Listeners
-document.getElementById('tg-token').addEventListener('input', (e) => telegramToken = e.target.value);
-document.getElementById('tg-chatid').addEventListener('input', (e) => telegramChatId = e.target.value);
+document.getElementById('tg-token').value = telegramToken;
+document.getElementById('tg-chatid').value = telegramChatId;
+
+document.getElementById('tg-token').addEventListener('input', (e) => {
+    telegramToken = e.target.value;
+    localStorage.setItem('tg_token', telegramToken);
+});
+document.getElementById('tg-chatid').addEventListener('input', (e) => {
+    telegramChatId = e.target.value;
+    localStorage.setItem('tg_chatid', telegramChatId);
+});
+
+document.querySelectorAll('.btn-edit-setting').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const input = e.target.closest('.settings-input-group').querySelector('.settings-input');
+        input.focus();
+    });
+});
 document.getElementById('target-class-select').addEventListener('change', (e) => targetClass = e.target.value);
 document.getElementById('demo-mode-toggle').addEventListener('change', (e) => {
     isDemoMode = e.target.checked;

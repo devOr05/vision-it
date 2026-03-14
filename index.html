@@ -42,7 +42,7 @@
             <div id="status" class="status">Conectando...</div>
         </header>
 
-        <main class="dashboard-layout">
+        <main class="dashboard-layout demo-mode">
             <!-- Camera Section -->
             <section class="camera-wall">
                 <div class="camera-frame">
@@ -204,6 +204,17 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Live Event Feed (Right Sidebar for Demo Mode) -->
+            <aside id="live-event-feed" class="live-event-feed">
+                <div class="feed-header">
+                    <h4>HISTORIAL DE DETECCIONES</h4>
+                </div>
+                <div id="event-list" class="event-list">
+                    <!-- Events will appear here -->
+                    <div class="empty-feed-msg">Esperando detecciones...</div>
+                </div>
+            </aside>
         </main>
 
         <!-- Settings Drawer -->
@@ -235,8 +246,16 @@
 
                 <div class="control-group">
                     <label>Configuración Telegram</label>
-                    <input type="password" id="tg-token" placeholder="Bot Token (12345:ABC...)" class="settings-input">
-                    <input type="text" id="tg-chatid" placeholder="Chat ID (Ej: -100123...)" class="settings-input" style="margin-top: 8px;">
+                    <div class="settings-input-group">
+                        <input type="text" id="tg-token" value="8535485891:AAEvAOiKwef-PlGffxwcJubUKYuB819sd90"
+                            placeholder="Bot Token" class="settings-input">
+                        <button class="btn-edit-setting" title="Editar Token">✏️</button>
+                    </div>
+                    <div class="settings-input-group" style="margin-top: 8px;">
+                        <input type="text" id="tg-chatid" value="1577936762" placeholder="Chat ID"
+                            class="settings-input">
+                        <button class="btn-edit-setting" title="Editar ID">✏️</button>
+                    </div>
                 </div>
 
                 <div class="control-group">
@@ -261,7 +280,8 @@
 
                 <div class="settings-actions">
                     <button id="reset-training" class="btn-danger-link">Reiniciar Base de Datos</button>
-                    <button id="toggle-advanced-ui" class="btn-outline" style="width: 100%; margin-top: 10px; font-size: 0.7rem;">Mostrar Paneles Avanzados</button>
+                    <button id="toggle-advanced-ui" class="btn-outline"
+                        style="width: 100%; margin-top: 10px; font-size: 0.7rem;">Mostrar Paneles Avanzados</button>
                 </div>
             </div>
         </div>
