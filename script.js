@@ -1,8 +1,7 @@
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const status = document.getElementById('status');
-const countNum = document.getElementById('count-num');
-const labelsContainer = document.createElement('div'); // Dummy container to avoid errors
+const labelsContainer = document.createElement('div');
 labelsContainer.id = 'labels-container';
 const toggleCamBtn = document.getElementById('toggle-camera');
 
@@ -13,19 +12,14 @@ const settingsDrawer = document.getElementById('settings-drawer');
 const confSlider = document.getElementById('conf-slider');
 const confVal = document.getElementById('conf-val');
 
-let detectionHistory = []; // For PDF report
+let detectionHistory = [];
 let lastLogTime = 0;
-let lastLoggedClass = -1;
 
 let model;
-let featureExtractor; // MobileNet
-let classifier; // KNN Classifier
 let currentFacingMode = 'environment';
-let confidenceThreshold = 0.10; // Lowered for better mobile detection
+let confidenceThreshold = 0.05; // Very low floor — let the model speak
 let isSpeechEnabled = false;
-let isTrainingMode = false;
-let isCountingMode = false;
-let lastSpoken = "";
+let lastSpoken = '';
 let lastSpokenTime = 0;
 
 // Demo Mode & Telegram Config
@@ -35,25 +29,29 @@ let telegramToken = localStorage.getItem('tg_token') || '8535485891:AAEvAOiKwef-
 let telegramChatId = localStorage.getItem('tg_chatid') || '1577936762';
 let isNotifyingTelegram = false;
 let lastTelegramTargetTime = 0;
-let telegramCooldown = 30000; // 30s between photos
+let telegramCooldown = 30000;
 let targetDetectionStartTime = 0;
-let detectionRequiredTime = 400; // 0.4s of stable detection
-let detectionCounter = 0; // Sequential ID for detections
-let classSampleCounts = [0, 0, 0];
-let classThumbnails = [[], [], []];
+let detectionRequiredTime = 400;
+let detectionCounter = 0;
 
-// Camera Handling
+// Frame throttle: only run inference every N ms (reduces CPU overload on mobile)
+let lastDetectTime = 0;
+const DETECT_INTERVAL_MS = 250; // 4fps max for inference — enough for real-time feel
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
 async function setupCamera() {
-    status.innerText = 'Conectando...';
+    status.innerText = 'Conectando cámara...';
     if (video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject.getTracks().forEach(t => t.stop());
     }
 
+    // On mobile, request lower resolution to avoid memory pressure
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
     const constraints = {
         video: {
-            facingMode: currentFacingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            facingMode: { ideal: currentFacingMode },
+            width: { ideal: isMobile ? 640 : 1280 },
+            height: { ideal: isMobile ? 480 : 720 }
         },
         audio: false
     };
@@ -64,49 +62,49 @@ async function setupCamera() {
 
         return new Promise((resolve, reject) => {
             const onReady = () => {
-                video.play().then(() => resolve(video)).catch(reject);
+                video.play()
+                    .then(() => resolve(video))
+                    .catch(reject);
             };
-            if (video.readyState >= 3) onReady();
-            else video.onloadeddata = onReady;
-
-            // Timeout safety for camera
-            setTimeout(() => reject('Timeout de cámara'), 5000);
+            if (video.readyState >= 3) {
+                onReady();
+            } else {
+                video.onloadeddata = onReady;
+            }
+            setTimeout(() => reject(new Error('Timeout de cámara')), 8000);
         });
     } catch (err) {
-        console.error(err);
-        if (err.name === 'NotAllowedError') status.innerText = 'Cámara bloqueada (permiso denegado)';
-        else status.innerText = 'Error de Cámara';
+        console.error('Camera error:', err);
+        if (err.name === 'NotAllowedError') {
+            status.innerText = '🚫 Cámara bloqueada — permitir en el navegador';
+        } else if (err.name === 'NotFoundError') {
+            status.innerText = '❌ No se encontró ninguna cámara';
+        } else {
+            status.innerText = `❌ Error: ${err.message}`;
+        }
         throw err;
     }
 }
 
-// Memory & Persistence
-// Persistence Logic removed per Regla de Oro (Training is disabled/deleted)
-function loadModel() { }
-function updateUIFeedback() { }
-
-// Model Loading — use mobilenet_v2 for better accuracy on mobile
+// ─── Model Loading ────────────────────────────────────────────────────────────
+// Use lite_mobilenet_v2: faster, lower memory, better compatibility on mobile
 async function loadModels() {
+    status.innerText = '🧠 Cargando modelo IA...';
     try {
-        status.innerText = 'Cargando IA...';
-        model = await cocoSsd.load({ base: 'mobilenet_v2' });
+        model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        console.log('Model loaded: lite_mobilenet_v2');
     } catch (err) {
-        console.error('Model load error:', err);
-        // Fallback to lite if full model fails
-        try {
-            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-        } catch (err2) {
-            console.error('Fallback model load error:', err2);
-            throw err2;
-        }
+        console.error('Model load failed:', err);
+        status.innerText = '❌ Error cargando modelo IA';
+        throw err;
     }
 }
 
+// ─── Speech ───────────────────────────────────────────────────────────────────
 function speak(text) {
     if (!isSpeechEnabled) return;
     const now = Date.now();
     if (now - lastSpokenTime < 4000 && text === lastSpoken) return;
-
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'es-ES';
@@ -116,10 +114,11 @@ function speak(text) {
     lastSpokenTime = now;
 }
 
+// ─── Detection Log & Feed ─────────────────────────────────────────────────────
 function logDetection(label) {
     const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const dateStr = new Date().toLocaleDateString('es-ES');
-    detectionHistory.push({ time: timeStr, date: dateStr, label: label });
+    detectionHistory.push({ time: timeStr, date: dateStr, label });
 }
 
 function addEventToFeed(label, sentStatus = 'pending') {
@@ -129,7 +128,6 @@ function addEventToFeed(label, sentStatus = 'pending') {
     detectionCounter++;
     const currentId = detectionCounter;
 
-    // Remove empty message if exists
     const emptyMsg = feed.querySelector('.empty-feed-msg');
     if (emptyMsg) emptyMsg.remove();
 
@@ -139,7 +137,6 @@ function addEventToFeed(label, sentStatus = 'pending') {
     const now = new Date();
     const dateStr = now.toLocaleDateString();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
     const statusText = sentStatus === 'sent' ? 'ENVIADO ✅' : 'DETECTADO';
     const statusClass = sentStatus === 'sent' ? 'sent' : 'pending';
 
@@ -155,23 +152,22 @@ function addEventToFeed(label, sentStatus = 'pending') {
     if (feed.children.length > 10) feed.lastChild.remove();
 }
 
+// ─── Telegram ─────────────────────────────────────────────────────────────────
 async function sendTelegramPhoto(imageData, label, score) {
     if (!telegramToken || !telegramChatId || isNotifyingTelegram) return;
-
     const now = Date.now();
     if (now - lastTelegramTargetTime < telegramCooldown) return;
 
     isNotifyingTelegram = true;
     const statusMsg = document.getElementById('overlay-status');
-    statusMsg.innerText = '📤 Enviando a Telegram...';
-    statusMsg.style.color = '#38bdf8';
+    if (statusMsg) { statusMsg.innerText = '📤 Enviando a Telegram...'; statusMsg.style.color = '#38bdf8'; }
 
     try {
         const blob = await (await fetch(imageData)).blob();
         const formData = new FormData();
         formData.append('chat_id', telegramChatId);
         formData.append('photo', blob, 'deteccion.jpg');
-        formData.append('caption', `🚀 Visión IT - Objeto Detectado\n\n📦 Producto: ${label}\n🎯 Precisión: ${Math.round(score * 100)}%\n⏰ Hora: ${new Date().toLocaleTimeString()}\n#VisionIT #Demo`);
+        formData.append('caption', `🚀 Visión IT - Objeto Detectado\n\n📦 Producto: ${label}\n🎯 Precisión: ${Math.round(score * 100)}%\n⏰ Hora: ${new Date().toLocaleTimeString()}\n#VisionIT`);
 
         const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendPhoto`, {
             method: 'POST',
@@ -179,118 +175,129 @@ async function sendTelegramPhoto(imageData, label, score) {
         });
 
         if (response.ok) {
-            statusMsg.innerText = '✅ Imagen enviada';
-            statusMsg.style.color = '#2dd4bf';
+            if (statusMsg) { statusMsg.innerText = '✅ Imagen enviada'; statusMsg.style.color = '#2dd4bf'; }
             lastTelegramTargetTime = now;
             addEventToFeed(label, 'sent');
         } else {
-            statusMsg.innerText = '❌ Error API Telegram';
-            statusMsg.style.color = '#ef4444';
+            if (statusMsg) { statusMsg.innerText = '❌ Error API Telegram'; statusMsg.style.color = '#ef4444'; }
         }
     } catch (err) {
-        console.error('Telegram Error:', err);
-        statusMsg.innerText = '⚠️ Error de Red';
+        console.error('Telegram error:', err);
+        if (statusMsg) { statusMsg.innerText = '⚠️ Error de Red'; }
     } finally {
         setTimeout(() => {
             isNotifyingTelegram = false;
-            if (statusMsg.innerText.includes('enviada')) {
-                statusMsg.innerText = 'A la espera de nueva detección...';
+            if (statusMsg && statusMsg.innerText.includes('enviada')) {
+                statusMsg.innerText = 'Escaneando...';
             }
         }, 3000);
     }
 }
 
-// Grid Analysis removed per Regla de Oro
+// ─── Canvas drawing helpers ───────────────────────────────────────────────────
+function drawBox(ctx, x, y, w, h, color, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, w, h);
 
+    // Label background
+    const textW = ctx.measureText(label).width + 12;
+    const textH = 22;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y - textH, textW, textH);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(label, x + 6, y - 6);
+}
+
+// ─── Main Detection Loop ──────────────────────────────────────────────────────
 async function detect() {
+    // Throttle: skip frame if not enough time passed
+    const now = Date.now();
+    if (now - lastDetectTime < DETECT_INTERVAL_MS) {
+        requestAnimationFrame(detect);
+        return;
+    }
+
     if (!model) {
         requestAnimationFrame(detect);
         return;
     }
 
-    const ctx = canvas.getContext('2d');
-    // Sync canvas size to actual video display size (critical for mobile portrait)
-    const rect = video.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-        canvas.width = video.videoWidth || rect.width;
-        canvas.height = video.videoHeight || rect.height;
-    } else if (video.videoWidth) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-    }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Guard: don't run if video isn't ready
-    if (video.readyState < 2 || !video.videoWidth) {
+    // Guard: video must be ready and have dimensions
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
         requestAnimationFrame(detect);
         return;
     }
 
-    const predictions = await model.detect(video);
-    const filtered = predictions.filter(p => p.score >= confidenceThreshold);
+    lastDetectTime = now;
 
-    // --- DEMO MODE TARGETING ---
-    if (isDemoMode) {
-        const targets = filtered.filter(p => p.class === targetClass);
-        const overlay = document.getElementById('detection-overlay');
+    // Sync canvas to native video resolution
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+    }
 
-        if (targets.length > 0) {
-            const bestTarget = targets.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-            document.getElementById('overlay-product').innerText = bestTarget.class;
-            document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
-            overlay.classList.remove('hidden');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
+    let predictions = [];
+    try {
+        // Use a very low threshold so COCO-SSD returns everything it sees
+        predictions = await model.detect(video, undefined, 0.03);
+    } catch (err) {
+        console.error('detect() error:', err);
+        requestAnimationFrame(detect);
+        return;
+    }
 
-            const now = Date.now();
+    // Always draw ALL detected objects (helps debug what the model sees)
+    // Color: teal for target, blue for everything else
+    const overlay = document.getElementById('detection-overlay');
+    let foundTarget = false;
+
+    predictions.forEach(p => {
+        if (p.score < confidenceThreshold) return; // apply user slider filter for feed/overlay only
+
+        const [x, y, w, h] = p.bbox;
+        const isTarget = (p.class === targetClass);
+        const color = isTarget ? '#2dd4bf' : 'rgba(56,189,248,0.6)';
+        const labelText = `${p.class} ${Math.round(p.score * 100)}%`;
+        drawBox(ctx, x, y, w, h, color, labelText);
+
+        if (isTarget) {
+            foundTarget = true;
+            const conf = Math.round(p.score * 100);
+            document.getElementById('overlay-product').innerText = p.class;
+            document.getElementById('overlay-conf').innerText = `${conf}%`;
+
+            if (targetDetectionStartTime === 0) targetDetectionStartTime = now;
+
             if (now - targetDetectionStartTime > detectionRequiredTime) {
-                // Log to feed immediately (independent of Telegram)
                 if (now - lastLogTime > 5000) {
                     lastLogTime = now;
-                    logDetection(bestTarget.class);
-                    addEventToFeed(bestTarget.class, 'sent');
+                    logDetection(p.class);
+                    addEventToFeed(p.class, 'sent');
                 }
-
-                // Send to Telegram separately
                 if (!isNotifyingTelegram && (now - lastTelegramTargetTime > telegramCooldown)) {
                     const screenshot = captureForTelegram();
-                    sendTelegramPhoto(screenshot, bestTarget.class, bestTarget.score);
+                    sendTelegramPhoto(screenshot, p.class, p.score);
                 }
             }
-
-            const [x, y, w, h] = bestTarget.bbox;
-            ctx.strokeStyle = '#2dd4bf';
-            ctx.lineWidth = 5;
-            ctx.strokeRect(x, y, w, h);
-        } else {
-            overlay.classList.add('hidden');
-            targetDetectionStartTime = 0;
         }
+    });
+
+    if (foundTarget) {
+        overlay.classList.remove('hidden');
     } else {
-        // Show all detections with label for visibility
-        filtered.forEach(prediction => {
-            const [x, y, w, h] = prediction.bbox;
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, w, h);
-            ctx.fillStyle = 'rgba(56,189,248,0.8)';
-            ctx.font = 'bold 14px Outfit';
-            ctx.fillText(`${prediction.class} ${Math.round(prediction.score * 100)}%`, x + 4, y + 18);
-        });
+        overlay.classList.add('hidden');
+        targetDetectionStartTime = 0;
     }
 
     requestAnimationFrame(detect);
 }
 
-// Essential UI listeners only
-openSettings.addEventListener('click', () => settingsDrawer.classList.add('active'));
-closeSettings.addEventListener('click', () => settingsDrawer.classList.remove('active'));
-
-confSlider.addEventListener('input', (e) => {
-    confidenceThreshold = e.target.value / 100;
-    confVal.innerText = e.target.value;
-});
-
+// ─── Capture for Telegram ─────────────────────────────────────────────────────
 function captureForTelegram() {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = video.videoWidth;
@@ -301,6 +308,7 @@ function captureForTelegram() {
     return tempCanvas.toDataURL('image/jpeg', 0.8);
 }
 
+// ─── PDF & Telegram Report ────────────────────────────────────────────────────
 async function generatePDFReport() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -325,25 +333,21 @@ async function generatePDFReport() {
             head: [['Fecha', 'Hora', 'Objeto', 'Estado']],
             body: tableData,
             theme: 'grid',
-            headStyles: { fillStyle: [45, 212, 191] }
+            headStyles: { fillColor: [45, 212, 191] }
         });
 
         const pdfBlob = doc.output('blob');
         const pdfUrl = URL.createObjectURL(pdfBlob);
-
-        // Download local copy
         const link = document.createElement('a');
         link.href = pdfUrl;
         link.download = `reporte-vision-it-${Date.now()}.pdf`;
         link.click();
 
-        // Send to Telegram
         await sendPDFToTelegram(pdfBlob);
-
         exportBtn.innerText = 'PDF Enviado ✅';
     } catch (err) {
         console.error('PDF Error:', err);
-        exportBtn.innerText = 'Error al enviar';
+        exportBtn.innerText = 'Error al generar';
     } finally {
         setTimeout(() => {
             exportBtn.innerText = 'Generar PDF y Enviar';
@@ -354,16 +358,12 @@ async function generatePDFReport() {
 
 async function sendPDFToTelegram(blob) {
     if (!telegramToken || !telegramChatId) return;
-
     const formData = new FormData();
     formData.append('chat_id', telegramChatId);
-    formData.append('document', blob, `reporte-vision-it.pdf`);
+    formData.append('document', blob, 'reporte-vision-it.pdf');
     formData.append('caption', '📄 Reporte de detecciones Visión IT');
-
-    const url = `https://api.telegram.org/bot${telegramToken}/sendDocument`;
-
     try {
-        await fetch(url, {
+        await fetch(`https://api.telegram.org/bot${telegramToken}/sendDocument`, {
             method: 'POST',
             body: formData
         });
@@ -372,8 +372,15 @@ async function sendPDFToTelegram(blob) {
     }
 }
 
-// Settings Listeners
-// Settings listeners maintained
+// ─── UI Listeners ─────────────────────────────────────────────────────────────
+openSettings.addEventListener('click', () => settingsDrawer.classList.add('active'));
+closeSettings.addEventListener('click', () => settingsDrawer.classList.remove('active'));
+
+confSlider.addEventListener('input', (e) => {
+    confidenceThreshold = e.target.value / 100;
+    confVal.innerText = e.target.value;
+});
+
 document.getElementById('tg-token').value = telegramToken;
 document.getElementById('tg-chatid').value = telegramChatId;
 
@@ -397,24 +404,28 @@ document.getElementById('export-pdf-btn').addEventListener('click', generatePDFR
 
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-    await setupCamera();
-    status.innerText = 'Sistema Online';
+    try {
+        await setupCamera();
+        status.innerText = '📷 Cámara cambiada';
+        setTimeout(() => status.innerText = 'Sistema Online', 1500);
+    } catch (err) {
+        console.error(err);
+    }
 });
 
-// Final Initialization
+// ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    status.innerText = 'Cargando Modelos de IA...';
     try {
         await loadModels();
-        status.innerText = 'Modelos Listos. Iniciando Cámara...';
+        status.innerText = '📷 Iniciando cámara...';
         await setupCamera();
         status.innerText = 'Sistema Online';
         status.style.color = '#2dd4bf';
         detect();
     } catch (err) {
-        console.error('Initialization Error:', err);
+        console.error('Init error:', err);
         status.style.color = '#ef4444';
-        // Detailed error is already set in setupCamera for specific cases
+        // Error message already set inside loadModels / setupCamera
     }
 }
 
