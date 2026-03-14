@@ -54,27 +54,21 @@ header {
 }
 
 .header-top {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    position: relative;
-    min-height: 40px;
 }
 
 .header-top .logo {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    grid-column: 2;
     text-align: center;
-    pointer-events: none;
-    white-space: nowrap;
 }
 
 .header-top .header-actions {
+    grid-column: 3;
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
-    margin-left: auto;
 }
 
 .logo {
@@ -213,24 +207,33 @@ header {
         flex-shrink: 0;
     }
 
-    /* Header: compact for mobile */
+    /* Header: compact — mobile only fix */
     header {
         padding: 0.5rem 0.8rem;
         margin-bottom: 0.6rem;
     }
 
+    /* Re-layout header-top: logo centered absolutely, icons right */
     .header-top {
+        display: flex;
+        align-items: center;
+        position: relative;
         min-height: 44px;
     }
 
     .header-top .logo {
-        font-size: 1rem;
-        font-weight: 800;
         position: absolute;
         left: 50%;
         transform: translateX(-50%);
+        font-size: 1rem;
+        font-weight: 800;
         white-space: nowrap;
         pointer-events: none;
+    }
+
+    .header-top .header-actions {
+        margin-left: auto;
+        grid-column: unset;
     }
 
     .header-actions {
@@ -243,7 +246,7 @@ header {
         border-radius: 10px;
     }
 
-    /* Status pill: centered below header-top */
+    /* Status pill: centered */
     .status {
         display: block;
         text-align: center;
