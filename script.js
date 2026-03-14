@@ -233,8 +233,17 @@ async function detect() {
 
             if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
 
-            if (Date.now() - targetDetectionStartTime > detectionRequiredTime) {
-                if (!isNotifyingTelegram && (Date.now() - lastTelegramTargetTime > telegramCooldown)) {
+            const now = Date.now();
+            if (now - targetDetectionStartTime > detectionRequiredTime) {
+                // Log to feed immediately (independent of Telegram)
+                if (now - lastLogTime > 5000) {
+                    lastLogTime = now;
+                    logDetection(bestTarget.class);
+                    addEventToFeed(bestTarget.class, 'sent');
+                }
+
+                // Send to Telegram separately
+                if (!isNotifyingTelegram && (now - lastTelegramTargetTime > telegramCooldown)) {
                     const screenshot = captureForTelegram();
                     sendTelegramPhoto(screenshot, bestTarget.class, bestTarget.score);
                 }
