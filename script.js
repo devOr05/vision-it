@@ -12,28 +12,8 @@ const closeSettings = document.getElementById('close-settings');
 const settingsDrawer = document.getElementById('settings-drawer');
 const confSlider = document.getElementById('conf-slider');
 const confVal = document.getElementById('conf-val');
-const speechToggle = document.getElementById('speech-toggle');
-const countModeToggle = document.getElementById('count-mode-toggle');
-const captureBtn = document.getElementById('capture-btn');
 
-// Training UI
-const trainModeBtn = document.getElementById('train-mode-btn');
-const saveModelBtn = document.getElementById('save-model-btn');
-const resetTraining = document.getElementById('reset-training');
-const aiModeText = document.getElementById('ai-mode-text');
-const customPredBox = document.getElementById('custom-prediction');
-const customLabel = document.getElementById('custom-label');
-
-const sampleCounters = [
-    document.getElementById('samples-0'),
-    document.getElementById('samples-1'),
-    document.getElementById('samples-2')
-];
-const galleries = [
-    document.getElementById('gallery-0'),
-    document.getElementById('gallery-1'),
-    document.getElementById('gallery-2')
-];
+let detectionHistory = [];
 
 let detectionHistory = []; // For PDF report
 let lastLogTime = 0;
@@ -103,106 +83,9 @@ async function setupCamera() {
 }
 
 // Memory & Persistence
-async function saveModel() {
-    const dataset = classifier.getClassifierDataset();
-    const saveBtn = document.getElementById('save-model-btn');
-
-    if (Object.keys(dataset).length === 0) {
-        status.innerText = '⚠️ Capture muestras antes de guardar';
-        status.style.color = '#fbbf24';
-        return;
-    }
-
-    try {
-        saveBtn.innerText = 'Guardando...';
-        saveBtn.disabled = true;
-
-        const readableDataset = {};
-        Object.keys(dataset).forEach((key) => {
-            const data = dataset[key].dataSync();
-            readableDataset[key] = Array.from(data);
-        });
-
-        const json = JSON.stringify({
-            dataset: readableDataset,
-            counts: classSampleCounts,
-            thumbnails: classThumbnails.map(arr => arr.slice(-3))
-        });
-
-        localStorage.setItem('vision_it_model_v3', json);
-
-        status.innerText = '✅ Aprendizaje guardado en memoria';
-        status.style.color = '#2dd4bf';
-        saveBtn.innerText = 'Guardado con éxito';
-        saveBtn.style.background = '#059669';
-
-        setTimeout(() => {
-            saveBtn.innerText = 'Guardar Aprendizaje';
-            saveBtn.disabled = false;
-            saveBtn.style.background = '';
-            status.style.color = '';
-            settingsDrawer.classList.remove('active');
-        }, 3000);
-
-    } catch (err) {
-        console.error('Error al guardar:', err);
-        status.innerText = '❌ Error: Memoria llena o bloqueada';
-        saveBtn.innerText = 'Reintentar Guardar';
-        saveBtn.disabled = false;
-    }
-}
-
-function loadModel() {
-    const json = localStorage.getItem('vision_it_model_v3');
-    if (!json) return;
-
-    try {
-        const data = JSON.parse(json);
-        const dataset = data.dataset;
-        classSampleCounts = data.counts || [0, 0, 0];
-        classThumbnails = data.thumbnails || [[], [], []];
-
-        const tensors = {};
-        Object.keys(dataset).forEach((key) => {
-            tensors[key] = tf.tensor2d(dataset[key], [dataset[key].length / 1024, 1024]);
-        });
-
-        classifier.setClassifierDataset(tensors);
-        updateUIFeedback();
-        status.innerText = '📦 Aprendizaje restaurado (IA Lista)';
-    } catch (err) {
-        console.error('Error loading model:', err);
-        status.innerText = 'Error al cargar memoria previa';
-    }
-}
-
-function updateUIFeedback() {
-    classSampleCounts.forEach((count, i) => {
-        if (sampleCounters[i]) sampleCounters[i].innerText = count;
-
-        if (galleries[i]) {
-            galleries[i].innerHTML = '';
-            classThumbnails[i].forEach(src => {
-                const img = document.createElement('img');
-                img.src = src;
-                img.className = 'sample-thumbnail';
-                galleries[i].appendChild(img);
-            });
-        }
-    });
-}
-
-window.resetClass = (id) => {
-    if (confirm(`¿Reiniciar aprendizaje para esta clase?`)) {
-        try {
-            classifier.clearClass(id);
-        } catch (e) { }
-        classSampleCounts[id] = 0;
-        classThumbnails[id] = [];
-        updateUIFeedback();
-        status.innerText = 'Clase reiniciada';
-    }
-};
+// Persistence Logic removed per Regla de Oro (Training is disabled/deleted)
+function loadModel() { }
+function updateUIFeedback() { }
 
 // Model Loading
 async function loadModels() {
@@ -238,36 +121,9 @@ function speak(text) {
 }
 
 function logDetection(label, classIndex) {
-    const now = Date.now();
-    if (now - lastLogTime < 2000 && classIndex === lastLoggedClass) return;
-
+    // Basic log for PDF tracking (if reused) or console
     const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const code = 'VIT-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-    const statusText = classIndex === 2 ? 'FONDO' : 'OK';
-    const statusClass = classIndex === 2 ? '' : 'status-ok';
-
-    detectionHistory.push({
-        time: timeStr,
-        label: label,
-        status: statusText,
-        code: code
-    });
-
-    const body = document.getElementById('log-body');
-    if (body) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${timeStr}</td>
-            <td><strong>${label}</strong></td>
-            <td><span class="${statusClass}">${statusText}</span></td>
-            <td><code style="font-size:0.7rem">${code}</code></td>
-        `;
-        body.prepend(row);
-        if (body.children.length > 50) body.lastChild.remove();
-    }
-
-    lastLogTime = now;
-    lastLoggedClass = classIndex;
+    detectionHistory.push({ time: timeStr, label: label });
 }
 
 function addEventToFeed(label, sentStatus = 'pending') {
@@ -348,74 +204,7 @@ async function sendTelegramPhoto(imageData, label, score) {
     }
 }
 
-async function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    const batchNum = document.getElementById('batch-number').value || 'S/N';
-    const batchDesc = document.getElementById('batch-desc').value || 'Sin descripción';
-
-    doc.setFontSize(22);
-    doc.setTextColor(56, 189, 248);
-    doc.text('REPORTE DE PRODUCCIÓN - VISIÓN IT', 14, 20);
-
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()} | Generado por: Vision IT IA`, 14, 28);
-
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.text(`Nº de Lote: ${batchNum}`, 14, 40);
-    doc.text(`Descripción: ${batchDesc}`, 14, 47);
-
-    const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
-    const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
-    const counts = [0, 0];
-    detectionHistory.forEach(d => {
-        if (d.label === name0) counts[0]++;
-        if (d.label === name1) counts[1]++;
-    });
-
-    doc.autoTable({
-        startY: 55,
-        head: [['Categoría', 'Cantidad Detectada', 'Estado']],
-        body: [
-            [name0, counts[0], 'Completado'],
-            [name1, counts[1], 'Completado'],
-            ['TOTAL PRODUCCIÓN', counts[0] + counts[1], 'FINALIZADO']
-        ],
-        theme: 'striped',
-        headStyles: { fillStyle: [56, 189, 248] }
-    });
-
-    const tableData = detectionHistory.map(d => [d.time, d.label, d.status, d.code]);
-
-    doc.autoTable({
-        startY: doc.lastAutoTable.finalY + 20,
-        head: [['Hora', 'Elemento', 'Estado', 'Código Verificación']],
-        body: tableData,
-        theme: 'grid'
-    });
-
-    doc.save(`reporte-produccion-${batchNum}-${Date.now()}.pdf`);
-}
-
-function drawGrid(ctx) {
-    if (!isCountingMode) return;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
-    ctx.lineWidth = 1;
-    const cols = 4;
-    const rows = 4;
-    const cw = canvas.width / cols;
-    const ch = canvas.height / rows;
-
-    for (let i = 1; i < cols; i++) {
-        ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, canvas.height); ctx.stroke();
-    }
-    for (let i = 1; i < rows; i++) {
-        ctx.beginPath(); ctx.moveTo(0, i * ch); ctx.lineTo(canvas.width, i * ch); ctx.stroke();
-    }
-}
+// Grid Analysis removed per Regla de Oro
 
 async function detect() {
     if (!model) {
@@ -473,106 +262,13 @@ async function detect() {
     requestAnimationFrame(detect);
 }
 
-async function addExample(classId) {
-    const img = tf.browser.fromPixels(video);
-    const resized = tf.image.resizeBilinear(img, [224, 224]);
-    const activation = featureExtractor.infer(resized, 'conv_preds');
-    classifier.addExample(activation, classId);
-    img.dispose();
-    resized.dispose();
-
-    classSampleCounts[classId]++;
-    const thumbCanvas = document.createElement('canvas');
-    thumbCanvas.width = 100;
-    thumbCanvas.height = 100;
-    const tCtx = thumbCanvas.getContext('2d');
-    const size = Math.min(video.videoWidth, video.videoHeight);
-    const startX = (video.videoWidth - size) / 2;
-    const startY = (video.videoHeight - size) / 2;
-    tCtx.drawImage(video, startX, startY, size, size, 0, 0, 100, 100);
-
-    const base64 = thumbCanvas.toDataURL('image/jpeg', 0.6);
-    classThumbnails[classId].push(base64);
-    if (classThumbnails[classId].length > 8) classThumbnails[classId].shift();
-    updateUIFeedback();
-}
-
-// Event Listeners
-[0, 1, 2].forEach(id => {
-    const btn = document.getElementById(`add-class-${id}`);
-    if (!btn) return;
-    let interval;
-    const start = (e) => {
-        if (e.cancelable) e.preventDefault();
-        btn.classList.add('recording');
-        addExample(id);
-        interval = setInterval(() => addExample(id), 200);
-    };
-    const end = () => {
-        clearInterval(interval);
-        btn.classList.remove('recording');
-        status.innerText = 'Fotos procesadas';
-    };
-    btn.addEventListener('mousedown', start);
-    btn.addEventListener('mouseup', end);
-    btn.addEventListener('mouseleave', end);
-    btn.addEventListener('touchstart', start, { passive: false });
-    btn.addEventListener('touchend', end);
-});
-
+// Essential UI listeners only
 openSettings.addEventListener('click', () => settingsDrawer.classList.add('active'));
 closeSettings.addEventListener('click', () => settingsDrawer.classList.remove('active'));
 
 confSlider.addEventListener('input', (e) => {
     confidenceThreshold = e.target.value / 100;
     confVal.innerText = e.target.value;
-});
-
-// Basic settings still reachable via drawer if needed, but UI options removed for Beta baseline
-if (typeof speechToggle !== 'undefined' && speechToggle) speechToggle.addEventListener('change', (e) => isSpeechEnabled = e.target.checked);
-if (typeof countModeToggle !== 'undefined' && countModeToggle) countModeToggle.addEventListener('change', (e) => isCountingMode = e.target.checked);
-
-trainModeBtn.addEventListener('click', () => {
-    isTrainingMode = !isTrainingMode;
-    trainModeBtn.innerText = isTrainingMode ? 'Desactivar IA Personalizada' : 'Activar IA Personalizada';
-    aiModeText.innerText = isTrainingMode ? 'Modo: APRENDIZAJE / CONTEO' : 'Modo: Estándar (Inspección General)';
-    if (!isTrainingMode) {
-        customPredBox.classList.add('hidden');
-    }
-});
-
-document.getElementById('main-train-toggle').addEventListener('click', () => {
-    const panel = document.getElementById('main-training-panel');
-    if (panel) panel.classList.toggle('hidden');
-    const isActive = panel && !panel.classList.contains('hidden');
-    document.getElementById('main-train-toggle').classList.toggle('recording', isActive);
-});
-
-document.getElementById('generate-pdf-btn').addEventListener('click', generatePDF);
-saveModelBtn.addEventListener('click', saveModel);
-
-resetTraining.addEventListener('click', () => {
-    if (confirm('¿Reiniciar toda la base de datos de aprendizaje?')) {
-        classifier.clearAllClasses();
-        localStorage.removeItem('vision_it_model_v3');
-        classSampleCounts = [0, 0, 0];
-        classThumbnails = [[], [], []];
-        updateUIFeedback();
-        status.innerText = 'Memoria borrada';
-    }
-});
-
-captureBtn.addEventListener('click', () => {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    const tCtx = tempCanvas.getContext('2d');
-    tCtx.drawImage(video, 0, 0);
-    tCtx.drawImage(canvas, 0, 0);
-    const link = document.createElement('a');
-    link.download = `captura-it-${Date.now()}.png`;
-    link.href = tempCanvas.toDataURL('image/png');
-    link.click();
 });
 
 function captureForTelegram() {
@@ -586,6 +282,7 @@ function captureForTelegram() {
 }
 
 // Settings Listeners
+// Settings listeners maintained
 document.getElementById('tg-token').value = telegramToken;
 document.getElementById('tg-chatid').value = telegramChatId;
 
@@ -603,19 +300,6 @@ document.querySelectorAll('.btn-edit-setting').forEach(btn => {
         const input = e.target.closest('.settings-input-group').querySelector('.settings-input');
         input.focus();
     });
-});
-document.getElementById('target-class-select').addEventListener('change', (e) => targetClass = e.target.value);
-document.getElementById('demo-mode-toggle').addEventListener('change', (e) => {
-    isDemoMode = e.target.checked;
-    document.querySelector('.dashboard-layout').classList.toggle('demo-mode', isDemoMode);
-    const panel = document.querySelector('.info-panel');
-    if (isDemoMode) panel.classList.add('demo-hidden');
-    else panel.classList.remove('demo-hidden');
-});
-
-document.getElementById('toggle-advanced-ui').addEventListener('click', () => {
-    const panel = document.querySelector('.info-panel');
-    panel.classList.toggle('demo-hidden');
 });
 
 toggleCamBtn.addEventListener('click', async () => {
