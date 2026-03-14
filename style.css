@@ -34,7 +34,7 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    min-height: 100%;
     padding: var(--screen-margin);
     /* Global Screen Margin */
 }
@@ -115,50 +115,82 @@ header {
 }
 
 @media (max-width: 768px) {
+
+    /* Reset body and container for mobile scroll */
+    body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100vh;
+    }
+
+    .app-container {
+        padding: 12px;
+        min-height: 100vh;
+        height: auto;
+    }
+
+    /* Stack layout vertically */
     .dashboard-layout.demo-mode {
-        display: flex;
-        flex-direction: column;
-        padding: 5px;
-        gap: 10px;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px;
         overflow: visible;
+        height: auto;
     }
 
-    header {
-        padding: 0.8rem 1rem;
-        flex-wrap: wrap;
-        gap: 10px;
+    /* Camera gets a fixed height on mobile */
+    .camera-wall {
+        height: 52vw;
+        min-height: 200px;
+        max-height: 260px;
+        flex-shrink: 0;
     }
 
-    .logo {
-        font-size: 1.1rem;
-    }
-
-    .status {
-        width: 100%;
-        text-align: center;
-        order: 3;
-        font-size: 0.75rem;
-        margin-top: 5px;
-    }
-
+    /* Badge: centered at top of camera */
     .counter-badge {
-        font-size: 0.8rem !important;
-        padding: 8px 16px !important;
-        top: 15px !important;
+        top: 12px !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
-        position: absolute !important;
-        width: fit-content !important;
+        font-size: 0.75rem !important;
+        padding: 6px 14px !important;
         white-space: nowrap;
     }
 
+    /* Detection overlay: show below camera, not floating over it */
+    .detection-overlay {
+        position: relative !important;
+        bottom: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        border-radius: 12px;
+        padding: 1rem;
+        animation: none;
+    }
+
+    /* Feed: full width, scrollable */
     .live-event-feed {
         position: relative !important;
+        display: flex !important;
         width: 100% !important;
         height: auto !important;
-        max-height: 500px !important;
-        margin-top: 10px;
-        background: rgba(15, 23, 42, 0.8) !important;
+        max-height: 380px !important;
+        flex-shrink: 0;
+    }
+
+    /* Header: compact */
+    header {
+        padding: 0.7rem 1rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .logo {
+        font-size: 1rem;
+    }
+
+    .status {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.8rem;
     }
 }
 
