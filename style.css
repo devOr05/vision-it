@@ -639,6 +639,12 @@ hr {
     gap: 0.8rem;
 }
 
+.feed-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--glass-border);
+    background: rgba(0, 0, 0, 0.3);
+}
+
 .empty-feed-msg {
     text-align: center;
     color: var(--text-muted);

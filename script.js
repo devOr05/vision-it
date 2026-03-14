@@ -118,10 +118,10 @@ function speak(text) {
     lastSpokenTime = now;
 }
 
-function logDetection(label, classIndex) {
-    // Basic log for PDF tracking (if reused) or console
+function logDetection(label) {
     const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    detectionHistory.push({ time: timeStr, label: label });
+    const dateStr = new Date().toLocaleDateString('es-ES');
+    detectionHistory.push({ time: timeStr, date: dateStr, label: label });
 }
 
 function addEventToFeed(label, sentStatus = 'pending') {
@@ -279,6 +279,77 @@ function captureForTelegram() {
     return tempCanvas.toDataURL('image/jpeg', 0.8);
 }
 
+async function generatePDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const exportBtn = document.getElementById('export-pdf-btn');
+
+    try {
+        exportBtn.innerText = 'Generando...';
+        exportBtn.disabled = true;
+
+        doc.setFontSize(22);
+        doc.setTextColor(45, 212, 191);
+        doc.text('VISIÓN IT - REPORTE DE DETECCIONES', 14, 20);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, 14, 28);
+
+        const tableData = detectionHistory.map(d => [d.date, d.time, d.label, 'OK']);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Fecha', 'Hora', 'Objeto', 'Estado']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillStyle: [45, 212, 191] }
+        });
+
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+
+        // Download local copy
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `reporte-vision-it-${Date.now()}.pdf`;
+        link.click();
+
+        // Send to Telegram
+        await sendPDFToTelegram(pdfBlob);
+
+        exportBtn.innerText = 'PDF Enviado ✅';
+    } catch (err) {
+        console.error('PDF Error:', err);
+        exportBtn.innerText = 'Error al enviar';
+    } finally {
+        setTimeout(() => {
+            exportBtn.innerText = 'Generar PDF y Enviar';
+            exportBtn.disabled = false;
+        }, 3000);
+    }
+}
+
+async function sendPDFToTelegram(blob) {
+    if (!telegramToken || !telegramChatId) return;
+
+    const formData = new FormData();
+    formData.append('chat_id', telegramChatId);
+    formData.append('document', blob, `reporte-vision-it.pdf`);
+    formData.append('caption', '📄 Reporte de detecciones Visión IT');
+
+    const url = `https://api.telegram.org/bot${telegramToken}/sendDocument`;
+
+    try {
+        await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+    } catch (err) {
+        console.error('Telegram PDF upload failed:', err);
+    }
+}
+
 // Settings Listeners
 // Settings listeners maintained
 document.getElementById('tg-token').value = telegramToken;
@@ -299,6 +370,8 @@ document.querySelectorAll('.btn-edit-setting').forEach(btn => {
         input.focus();
     });
 });
+
+document.getElementById('export-pdf-btn').addEventListener('click', generatePDFReport);
 
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
