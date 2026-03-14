@@ -60,6 +60,18 @@ let lastTelegramTargetTime = 0;
 let telegramCooldown = 30000; // 30s between photos
 let targetDetectionStartTime = 0;
 let detectionRequiredTime = 800; // 0.8s of stable detection
+let detectionCounter = 0; // Sequential ID for detections
+
+// Cached DOM Elements for performance
+const videoElement = document.getElementById('video');
+const canvasElement = document.getElementById('canvas');
+const overlayElement = document.getElementById('detection-overlay');
+const overlayProduct = document.getElementById('overlay-product');
+const overlayConf = document.getElementById('overlay-conf');
+const overlayStatus = document.getElementById('overlay-status');
+const tgTokenInput = document.getElementById('tg-token');
+const tgChatIdInput = document.getElementById('tg-chatid');
+const targetClassSelect = document.getElementById('target-class-select');
 
 let classSampleCounts = [0, 0, 0];
 let classThumbnails = [[], [], []];
@@ -269,26 +281,33 @@ function addEventToFeed(label, sentStatus = 'pending') {
     const feed = document.getElementById('event-list');
     if (!feed) return;
 
+    detectionCounter++;
+    const currentId = detectionCounter;
+
     // Remove empty message if exists
     const emptyMsg = feed.querySelector('.empty-feed-msg');
     if (emptyMsg) emptyMsg.remove();
 
     const card = document.createElement('div');
     card.className = 'event-card';
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     const statusText = sentStatus === 'sent' ? 'ENVIADO ✅' : 'DETECTADO';
     const statusClass = sentStatus === 'sent' ? 'sent' : 'pending';
 
     card.innerHTML = `
         <div class="event-info">
-            <span class="event-title">${label}</span>
-            <span class="event-time">${timeStr}</span>
+            <span class="event-title">${label.toUpperCase()} #${currentId}</span>
+            <span class="event-time">${dateStr} - ${timeStr}</span>
         </div>
         <div class="event-status ${statusClass}">${statusText}</div>
     `;
 
     feed.prepend(card);
-    if (feed.children.length > 10) feed.lastChild.remove();
+    if (feed.children.length > 15) feed.lastChild.remove();
 }
 
 async function sendTelegramPhoto(imageData, label, score) {
@@ -411,33 +430,27 @@ async function detect() {
         return;
     }
 
-    const ctx = canvas.getContext('2d');
-    if (video.videoWidth) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+    const ctx = canvasElement.getContext('2d');
+    if (videoElement.videoWidth) {
+        if (canvasElement.width !== videoElement.videoWidth) {
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+        }
     }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-    let cocoDetectedCount = 0;
-    const name0 = document.getElementById('name-class-0').value || 'Objeto 1';
-    const name1 = document.getElementById('name-class-1').value || 'Objeto 2';
-    const name2 = document.getElementById('name-class-2').value || 'Fondo';
-    const classes = [name0, name1, name2];
-
-    const predictions = await model.detect(video);
+    const predictions = await model.detect(videoElement);
     const filtered = predictions.filter(p => p.score >= confidenceThreshold);
-    cocoDetectedCount = filtered.length;
 
     // --- DEMO MODE TARGETING ---
     if (isDemoMode) {
         const targets = filtered.filter(p => p.class === targetClass);
-        const overlay = document.getElementById('detection-overlay');
 
         if (targets.length > 0) {
             const bestTarget = targets.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-            document.getElementById('overlay-product').innerText = bestTarget.class.toUpperCase();
-            document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
-            overlay.classList.remove('hidden');
+            overlayProduct.innerText = bestTarget.class.toUpperCase();
+            overlayConf.innerText = `${Math.round(bestTarget.score * 100)}%`;
+            overlayElement.classList.remove('hidden');
 
             if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
 
@@ -453,7 +466,7 @@ async function detect() {
             ctx.lineWidth = 5;
             ctx.strokeRect(x, y, w, h);
         } else {
-            overlay.classList.add('hidden');
+            overlayElement.classList.add('hidden');
             targetDetectionStartTime = 0;
         }
     } else {
@@ -583,8 +596,9 @@ confSlider.addEventListener('input', (e) => {
     confVal.innerText = e.target.value;
 });
 
-speechToggle.addEventListener('change', (e) => isSpeechEnabled = e.target.checked);
-countModeToggle.addEventListener('change', (e) => isCountingMode = e.target.checked);
+// Basic settings still reachable via drawer if needed, but UI options removed for Beta baseline
+if (typeof speechToggle !== 'undefined' && speechToggle) speechToggle.addEventListener('change', (e) => isSpeechEnabled = e.target.checked);
+if (typeof countModeToggle !== 'undefined' && countModeToggle) countModeToggle.addEventListener('change', (e) => isCountingMode = e.target.checked);
 
 trainModeBtn.addEventListener('click', () => {
     isTrainingMode = !isTrainingMode;
