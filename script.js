@@ -21,7 +21,7 @@ let model;
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
 let currentFacingMode = 'environment';
-let confidenceThreshold = 0.20;
+let confidenceThreshold = 0.02; // Lower default — slider will adjust this
 let isSpeechEnabled = false;
 let isTrainingMode = false;
 let isCountingMode = false;
@@ -88,7 +88,8 @@ function updateUIFeedback() { }
 // Model Loading
 async function loadModels() {
     try {
-        model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        // Use full mobilenet_v2 for better detection accuracy, especially on mobile rear camera
+        model = await cocoSsd.load({ base: 'mobilenet_v2' });
     } catch (err) {
         console.error(err);
         throw err;
@@ -195,11 +196,22 @@ async function sendTelegramPhoto(imageData, label, score) {
 
 // Grid Analysis removed per Regla de Oro
 
+let lastDetectionTime = 0;
+const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const DETECTION_THROTTLE_MS = isMobileDevice ? 500 : 250; // Slower on mobile to avoid overlapping inferences
+
 async function detect() {
     if (!model) {
         requestAnimationFrame(detect);
         return;
     }
+
+    const now = Date.now();
+    if (now - lastDetectionTime < DETECTION_THROTTLE_MS) {
+        requestAnimationFrame(detect);
+        return;
+    }
+    lastDetectionTime = now;
 
     const ctx = canvas.getContext('2d');
     if (video.videoWidth) {
@@ -214,57 +226,51 @@ async function detect() {
         return;
     }
 
-    const predictions = await model.detect(video);
-    const filtered = predictions.filter(p => p.score >= confidenceThreshold);
+    // --- PLATFORM ADAPTIVE LOGIC ---
+    const isMobile = isMobileDevice;
+    // Use slider value (confidenceThreshold) for both platforms, with a safe floor
+    const minScore = Math.max(confidenceThreshold, isMobile ? 0.02 : 0.10);
+    const stableTimeNeeded = isMobile ? 200 : 600; 
 
-    // --- DEMO MODE TARGETING ---
-    if (isDemoMode) {
-        const targets = filtered.filter(p => p.class === targetClass);
-        const overlay = document.getElementById('detection-overlay');
+    const predictions = await model.detect(video, 20, 0.01); // Request more candidates at very low floor
+    
+    // STRICT FILTER: ONLY Cell Phones
+    const cellPhones = predictions.filter(p => p.class === 'cell phone' && p.score >= minScore);
+    const overlay = document.getElementById('detection-overlay');
 
-        if (targets.length > 0) {
-            const bestTarget = targets.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-            document.getElementById('overlay-product').innerText = bestTarget.class;
+    if (cellPhones.length > 0) {
+        const bestTarget = cellPhones.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+        
+        // Canvas Box
+        const [x, y, w, h] = bestTarget.bbox;
+        ctx.strokeStyle = '#2dd4bf';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x, y, w, h);
+        
+        // Show Overlay
+        if (overlay) {
+            document.getElementById('overlay-product').innerText = "CELULAR";
             document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
             overlay.classList.remove('hidden');
+        }
 
-            if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
+        if (targetDetectionStartTime === 0) targetDetectionStartTime = Date.now();
 
-            const now = Date.now();
-            if (now - targetDetectionStartTime > detectionRequiredTime) {
-                // Log to feed immediately (independent of Telegram)
-                if (now - lastLogTime > 5000) {
-                    lastLogTime = now;
-                    logDetection(bestTarget.class);
-                    addEventToFeed(bestTarget.class, 'sent');
-                }
-
-                // Send to Telegram separately
-                if (!isNotifyingTelegram && (now - lastTelegramTargetTime > telegramCooldown)) {
-                    const screenshot = captureForTelegram();
-                    sendTelegramPhoto(screenshot, bestTarget.class, bestTarget.score);
-                }
+        if (now - targetDetectionStartTime > stableTimeNeeded) {
+            if (now - lastLogTime > 4000) { 
+                lastLogTime = now;
+                logDetection("Celular");
+                addEventToFeed("Celular", 'sent');
             }
 
-            const [x, y, w, h] = bestTarget.bbox;
-            ctx.strokeStyle = '#2dd4bf';
-            ctx.lineWidth = 5;
-            ctx.strokeRect(x, y, w, h);
-        } else {
-            overlay.classList.add('hidden');
-            targetDetectionStartTime = 0;
+            if (!isNotifyingTelegram && (now - lastTelegramTargetTime > telegramCooldown)) {
+                const screenshot = captureForTelegram();
+                sendTelegramPhoto(screenshot, "Celular", bestTarget.score);
+            }
         }
     } else {
-        // Show all detections with label for visibility
-        filtered.forEach(prediction => {
-            const [x, y, w, h] = prediction.bbox;
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, w, h);
-            ctx.fillStyle = 'rgba(56,189,248,0.8)';
-            ctx.font = 'bold 14px Outfit';
-            ctx.fillText(`${prediction.class} ${Math.round(prediction.score * 100)}%`, x + 4, y + 18);
-        });
+        if (overlay) overlay.classList.add('hidden');
+        targetDetectionStartTime = 0;
     }
 
     requestAnimationFrame(detect);
@@ -382,6 +388,19 @@ document.querySelectorAll('.btn-edit-setting').forEach(btn => {
 });
 
 document.getElementById('export-pdf-btn').addEventListener('click', generatePDFReport);
+
+openSettings.addEventListener('click', () => {
+    settingsDrawer.classList.add('active');
+});
+
+closeSettings.addEventListener('click', () => {
+    settingsDrawer.classList.remove('active');
+});
+
+confSlider.addEventListener('input', (e) => {
+    confidenceThreshold = e.target.value / 100;
+    confVal.innerText = e.target.value;
+});
 
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
