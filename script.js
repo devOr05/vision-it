@@ -405,7 +405,7 @@ confSlider.addEventListener('input', (e) => {
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
     await setupCamera();
-    status.innerText = 'Sistema Online';
+    status.innerText = 'Sistema on line de reconocimiento de celulares y dispositivos móviles';
 });
 
 // Final Initialization
@@ -415,7 +415,7 @@ async function init() {
         await loadModels();
         status.innerText = 'Modelos Listos. Iniciando Cámara...';
         await setupCamera();
-        status.innerText = 'Sistema Online';
+        status.innerText = 'Sistema on line de reconocimiento de celulares y dispositivos móviles';
         status.style.color = '#2dd4bf';
         detect();
     } catch (err) {
