@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="cyberBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="70%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+    <linearGradient id="cyanPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <filter id="cyberGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Dark Background -->
+  <rect width="512" height="512" fill="url(#cyberBg)" />
+
+  <!-- AI Bounding Box / Reticle Corners -->
+  <g stroke="url(#neonCyan)" stroke-width="6" fill="none" stroke-linecap="round">
+    <!-- Top Left -->
+    <path d="M 80 150 L 80 80 L 150 80" />
+    <!-- Top Right -->
+    <path d="M 362 80 L 432 80 L 432 150" />
+    <!-- Bottom Left -->
+    <path d="M 80 362 L 80 432 L 150 432" />
+    <!-- Bottom Right -->
+    <path d="M 362 432 L 432 432 L 432 362" />
+  </g>
+
+  <!-- Futuristic Scanner Circle Grid -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#1e293b" stroke-width="2" stroke-dasharray="6 8" />
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#334155" stroke-width="1.5" />
+
+  <!-- Central Cybernetic AI Iris (The Vision) -->
+  <g filter="url(#cyberGlow)">
+    <!-- Eye Shape Outer Ring -->
+    <path d="M 100 256 C 150 170 362 170 412 256 C 362 342 150 342 100 256 Z" fill="none" stroke="url(#cyanPurple)" stroke-width="8" stroke-linejoin="round" />
+
+    <!-- Iris Circle -->
+    <circle cx="256" cy="256" r="68" fill="#020617" stroke="url(#cyanPurple)" stroke-width="6" />
+    
+    <!-- Pupil / AI Sensor Aperture -->
+    <circle cx="256" cy="256" r="34" fill="url(#neonCyan)" />
+    <circle cx="256" cy="256" r="14" fill="#ffffff" />
+
+    <!-- Laser Horizontal Scanline -->
+    <line x1="60" y1="256" x2="452" y2="256" stroke="#22d3ee" stroke-width="2.5" opacity="0.85" stroke-dasharray="8 6" />
+
+    <!-- Detection Markers -->
+    <circle cx="200" cy="210" r="4" fill="#a855f7" />
+    <circle cx="312" cy="210" r="4" fill="#a855f7" />
+    <circle cx="200" cy="302" r="4" fill="#a855f7" />
+    <circle cx="312" cy="302" r="4" fill="#a855f7" />
+  </g>
+
+  <!-- Tagline Text -->
+  <text x="256" y="475" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="34" fill="#38bdf8" letter-spacing="6">VISIÓN IT</text>
+</svg>

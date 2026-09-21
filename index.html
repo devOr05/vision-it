@@ -5,6 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Visión IT | Detector en Tiempo Real</title>
+        <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Visión IT">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="style.css">
     <!-- TensorFlow.js and Models -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -151,6 +161,68 @@
     </div>
 
     <script src="script.js"></script>
+
+    <!-- Floating Install Banner -->
+    <div id="pwa-install-banner" style="display:none; position:fixed; bottom:20px; left:16px; right:16px; max-width:420px; margin:0 auto; z-index:9999; background:rgba(15,23,42,0.95); border:1px solid rgba(56,189,248,0.4); padding:12px 16px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.5); backdrop-filter:blur(10px); align-items:center; justify-content:space-between; gap:12px; font-family:system-ui, sans-serif;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <img src="icons/icon-192.png" alt="Visión IT" style="width:40px; height:40px; border-radius:10px;">
+            <div>
+                <div style="font-size:14px; font-weight:bold; color:#ffffff; line-height:1.2;">Instalar Visión IT</div>
+                <div style="font-size:12px; color:#38bdf8;">Detector IA en tu pantalla</div>
+            </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button id="pwa-install-btn" style="background:#0284c7; color:#fff; border:none; padding:8px 14px; border-radius:10px; font-size:12px; font-weight:bold; cursor:pointer;">Instalar</button>
+            <button id="pwa-install-close" style="background:transparent; color:#94a3b8; border:none; font-size:16px; cursor:pointer; padding:4px;">✕</button>
+        </div>
+    </div>
+
+    <!-- PWA Registration & Install Handler -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('Visión IT SW registrado:', reg.scope);
+                        reg.update();
+                    })
+                    .catch(err => console.log('SW falló:', err));
+            });
+        }
+
+        let deferredPrompt = null;
+        const installBanner = document.getElementById('pwa-install-banner');
+        const installBtn = document.getElementById('pwa-install-btn');
+        const installClose = document.getElementById('pwa-install-close');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBanner) installBanner.style.display = 'flex';
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log('User choice:', outcome);
+                    deferredPrompt = null;
+                }
+                if (installBanner) installBanner.style.display = 'none';
+            });
+        }
+
+        if (installClose) {
+            installClose.addEventListener('click', () => {
+                if (installBanner) installBanner.style.display = 'none';
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            if (installBanner) installBanner.style.display = 'none';
+        });
+    </script>
 </body>
 
 </html>
