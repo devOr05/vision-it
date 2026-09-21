@@ -1,5 +1,5 @@
 // Service Worker for Visión IT PWA
-const CACHE_NAME = 'vision-it-cache-v1';
+const CACHE_NAME = 'vision-it-cache-v2';
 const ASSETS = [
   './',
   './index.html',
