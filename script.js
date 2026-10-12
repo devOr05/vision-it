@@ -19,29 +19,20 @@ let lastLoggedClass = -1;
 
 let model;
 let modelType = 'blazeface';
-let featureExtractor; // MobileNet
-let classifier; // KNN Classifier
 let currentFacingMode = 'user';
 let confidenceThreshold = 0.50;
 let isSpeechEnabled = false;
-let isTrainingMode = false;
-let isCountingMode = false;
 let lastSpoken = "";
 let lastSpokenTime = 0;
 
-// Demo Mode & Telegram Config
-let isDemoMode = true;
-let targetClass = 'cell phone';
+// Telegram & Detection Config
 let telegramToken = localStorage.getItem('tg_token') || '8535485891:AAEvAOiKwef-PlGffxwcJubUKYuB819sd90';
 let telegramChatId = localStorage.getItem('tg_chatid') || '1577936762';
 let isNotifyingTelegram = false;
 let lastTelegramTargetTime = 0;
 let telegramCooldown = 30000; // 30s between photos
 let targetDetectionStartTime = 0;
-let detectionRequiredTime = 400; // 0.4s of stable detection
 let detectionCounter = 0; // Sequential ID for detections
-let classSampleCounts = [0, 0, 0];
-let classThumbnails = [[], [], []];
 
 // Camera Handling
 async function setupCamera() {
@@ -86,13 +77,21 @@ async function setupCamera() {
 function loadModel() { }
 function updateUIFeedback() { }
 
-// Model Loading (BlazeFace high-speed with COCO-SSD fallback)
+// Model Loading (BlazeFace high-speed with WebGL acceleration)
 async function loadModels() {
     try {
+        if (window.tf) {
+            try {
+                await tf.setBackend('webgl');
+                await tf.ready();
+            } catch (backendErr) {
+                console.warn('WebGL initialization warning, using default:', backendErr);
+            }
+        }
         if (typeof blazeface !== 'undefined') {
             model = await blazeface.load();
             modelType = 'blazeface';
-            console.log('BlazeFace model loaded successfully');
+            console.log('BlazeFace model loaded successfully with backend:', window.tf ? tf.getBackend() : 'auto');
         } else if (typeof cocoSsd !== 'undefined') {
             model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
             modelType = 'cocossd';
@@ -230,7 +229,7 @@ async function detect() {
     lastDetectionTime = now;
 
     const ctx = canvas.getContext('2d');
-    if (video.videoWidth) {
+    if (video.videoWidth && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
     }
@@ -242,8 +241,8 @@ async function detect() {
         return;
     }
 
-    const minScore = Math.max(confidenceThreshold, 0.35);
-    const stableTimeNeeded = 120; // Fast response for immediate feedback
+    const minScore = Math.max(confidenceThreshold, 0.20);
+    const stableTimeNeeded = 100; // Ultra-fast response (<100ms) for immediate feedback
     const overlay = document.getElementById('detection-overlay');
 
     let detectedFaces = [];
