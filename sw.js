@@ -1,5 +1,5 @@
 // Service Worker for Visión IT PWA
-const CACHE_NAME = 'vision-it-cache-v2';
+const CACHE_NAME = 'vision-it-cache-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -32,24 +32,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('tensorflow') || event.request.url.includes('jsdelivr') || event.request.url.includes('cdnjs')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
+  // Always fetch latest from network first for app code, fallback to cache
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((networkRes) => {
-        if (networkRes && networkRes.status === 200) {
+    fetch(event.request)
+      .then((networkRes) => {
+        if (networkRes && networkRes.status === 200 && event.request.method === 'GET') {
           const resClone = networkRes.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
         }
         return networkRes;
-      }).catch(() => cached);
-
-      return cached || fetchPromise;
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
