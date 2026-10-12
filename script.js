@@ -18,10 +18,11 @@ let lastLogTime = 0;
 let lastLoggedClass = -1;
 
 let model;
+let modelType = 'blazeface';
 let featureExtractor; // MobileNet
 let classifier; // KNN Classifier
-let currentFacingMode = 'environment';
-let confidenceThreshold = 0.02; // Lower default — slider will adjust this
+let currentFacingMode = 'user';
+let confidenceThreshold = 0.50;
 let isSpeechEnabled = false;
 let isTrainingMode = false;
 let isCountingMode = false;
@@ -85,14 +86,28 @@ async function setupCamera() {
 function loadModel() { }
 function updateUIFeedback() { }
 
-// Model Loading
+// Model Loading (BlazeFace high-speed with COCO-SSD fallback)
 async function loadModels() {
     try {
-        // Use full mobilenet_v2 for better detection accuracy, especially on mobile rear camera
-        model = await cocoSsd.load({ base: 'mobilenet_v2' });
+        if (typeof blazeface !== 'undefined') {
+            model = await blazeface.load();
+            modelType = 'blazeface';
+            console.log('BlazeFace model loaded successfully');
+        } else if (typeof cocoSsd !== 'undefined') {
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            modelType = 'cocossd';
+            console.log('COCO-SSD fallback loaded');
+        } else {
+            throw new Error('No detection model found');
+        }
     } catch (err) {
-        console.error(err);
-        throw err;
+        console.warn('Error loading BlazeFace, trying COCO-SSD fallback:', err);
+        if (typeof cocoSsd !== 'undefined') {
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            modelType = 'cocossd';
+        } else {
+            throw err;
+        }
     }
 }
 
@@ -165,7 +180,7 @@ async function sendTelegramPhoto(imageData, label, score) {
         const formData = new FormData();
         formData.append('chat_id', telegramChatId);
         formData.append('photo', blob, 'deteccion.jpg');
-        formData.append('caption', `🚀 Visión IT - Objeto Detectado\n\n📦 Producto: ${label}\n🎯 Precisión: ${Math.round(score * 100)}%\n⏰ Hora: ${new Date().toLocaleTimeString()}\n#VisionIT #Demo`);
+        formData.append('caption', `🚀 Visión IT - Rostro Detectado\n\n👤 Detección: ${label}\n🎯 Precisión: ${Math.round(score * 100)}%\n⏰ Hora: ${new Date().toLocaleTimeString()}\n#VisionIT #FaceDetection`);
 
         const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendPhoto`, {
             method: 'POST',
@@ -198,7 +213,8 @@ async function sendTelegramPhoto(imageData, label, score) {
 
 let lastDetectionTime = 0;
 const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const DETECTION_THROTTLE_MS = isMobileDevice ? 500 : 250; // Slower on mobile to avoid overlapping inferences
+// BlazeFace is ultra-optimized: 50-80ms provides instant, smooth 20+ FPS real-time tracking
+const DETECTION_THROTTLE_MS = isMobileDevice ? 80 : 40;
 
 async function detect() {
     if (!model) {
@@ -226,30 +242,113 @@ async function detect() {
         return;
     }
 
-    // --- PLATFORM ADAPTIVE LOGIC ---
-    const isMobile = isMobileDevice;
-    // Use slider value (confidenceThreshold) for both platforms, with a safe floor
-    const minScore = Math.max(confidenceThreshold, isMobile ? 0.02 : 0.10);
-    const stableTimeNeeded = isMobile ? 200 : 600; 
-
-    const predictions = await model.detect(video, 20, 0.01); // Request more candidates at very low floor
-    
-    // STRICT FILTER: ONLY Cell Phones
-    const cellPhones = predictions.filter(p => p.class === 'cell phone' && p.score >= minScore);
+    const minScore = Math.max(confidenceThreshold, 0.35);
+    const stableTimeNeeded = 120; // Fast response for immediate feedback
     const overlay = document.getElementById('detection-overlay');
 
-    if (cellPhones.length > 0) {
-        const bestTarget = cellPhones.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-        
-        // Canvas Box
-        const [x, y, w, h] = bestTarget.bbox;
+    let detectedFaces = [];
+
+    try {
+        if (modelType === 'blazeface') {
+            const predictions = await model.estimateFaces(video, false);
+            detectedFaces = predictions
+                .map(p => {
+                    const score = Array.isArray(p.probability) ? p.probability[0] : (p.probability || 0.95);
+                    const [x1, y1] = p.topLeft;
+                    const [x2, y2] = p.bottomRight;
+                    return {
+                        x: x1,
+                        y: y1,
+                        w: Math.max(x2 - x1, 10),
+                        h: Math.max(y2 - y1, 10),
+                        score: score,
+                        landmarks: p.landmarks
+                    };
+                })
+                .filter(f => f.score >= minScore);
+        } else {
+            // Fallback COCO-SSD for person
+            const predictions = await model.detect(video, 10, 0.1);
+            detectedFaces = predictions
+                .filter(p => p.class === 'person' && p.score >= minScore)
+                .map(p => {
+                    const [x, y, w, h] = p.bbox;
+                    return {
+                        x: x + w * 0.15,
+                        y: y,
+                        w: w * 0.7,
+                        h: Math.min(h * 0.45, w * 0.9),
+                        score: p.score
+                    };
+                });
+        }
+    } catch (err) {
+        console.warn('Inference error:', err);
+    }
+
+    if (detectedFaces.length > 0) {
+        const bestTarget = detectedFaces.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+        const { x, y, w, h } = bestTarget;
+
+        // Draw futuristic cyber bounding box
         ctx.strokeStyle = '#2dd4bf';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.strokeRect(x, y, w, h);
-        
+
+        // Tech corner accents
+        const cornerLen = Math.min(w, h) * 0.22;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 5;
+
+        // Top-Left corner
+        ctx.beginPath();
+        ctx.moveTo(x, y + cornerLen);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + cornerLen, y);
+        ctx.stroke();
+
+        // Top-Right corner
+        ctx.beginPath();
+        ctx.moveTo(x + w - cornerLen, y);
+        ctx.lineTo(x + w, y);
+        ctx.lineTo(x + w, y + cornerLen);
+        ctx.stroke();
+
+        // Bottom-Left corner
+        ctx.beginPath();
+        ctx.moveTo(x, y + h - cornerLen);
+        ctx.lineTo(x, y + h);
+        ctx.lineTo(x + cornerLen, y + h);
+        ctx.stroke();
+
+        // Bottom-Right corner
+        ctx.beginPath();
+        ctx.moveTo(x + w - cornerLen, y + h);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x + w, y + h - cornerLen);
+        ctx.stroke();
+
+        // Draw facial landmarks (eyes, nose, mouth points)
+        if (bestTarget.landmarks && bestTarget.landmarks.length) {
+            ctx.fillStyle = '#38bdf8';
+            for (let i = 0; i < bestTarget.landmarks.length; i++) {
+                const [lx, ly] = bestTarget.landmarks[i];
+                ctx.beginPath();
+                ctx.arc(lx, ly, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // Cyber HUD tag above box
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(x, Math.max(0, y - 28), 160, 24);
+        ctx.fillStyle = '#2dd4bf';
+        ctx.font = 'bold 12px Outfit, sans-serif';
+        ctx.fillText(`ROSTRO ${Math.round(bestTarget.score * 100)}%`, x + 8, Math.max(16, y - 11));
+
         // Show Overlay
         if (overlay) {
-            document.getElementById('overlay-product').innerText = "CELULAR";
+            document.getElementById('overlay-product').innerText = "ROSTRO HUMANO";
             document.getElementById('overlay-conf').innerText = `${Math.round(bestTarget.score * 100)}%`;
             overlay.classList.remove('hidden');
         }
@@ -259,13 +358,13 @@ async function detect() {
         if (now - targetDetectionStartTime > stableTimeNeeded) {
             if (now - lastLogTime > 4000) { 
                 lastLogTime = now;
-                logDetection("Celular");
-                addEventToFeed("Celular", 'sent');
+                logDetection("Rostro Humano");
+                addEventToFeed("Rostro", 'sent');
             }
 
             if (!isNotifyingTelegram && (now - lastTelegramTargetTime > telegramCooldown)) {
                 const screenshot = captureForTelegram();
-                sendTelegramPhoto(screenshot, "Celular", bestTarget.score);
+                sendTelegramPhoto(screenshot, "Rostro Humano", bestTarget.score);
             }
         }
     } else {
@@ -316,7 +415,7 @@ async function generatePDFReport() {
 
         doc.autoTable({
             startY: 40,
-            head: [['Fecha', 'Hora', 'Objeto', 'Estado']],
+            head: [['Fecha', 'Hora', 'Detección', 'Estado']],
             body: tableData,
             theme: 'grid',
             headStyles: { fillStyle: [45, 212, 191] }
@@ -405,17 +504,17 @@ confSlider.addEventListener('input', (e) => {
 toggleCamBtn.addEventListener('click', async () => {
     currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
     await setupCamera();
-    status.innerText = 'Sistema on line de reconocimiento de celulares y dispositivos móviles';
+    status.innerText = 'Sistema on line de reconocimiento de rostros en tiempo real';
 });
 
 // Final Initialization
 async function init() {
-    status.innerText = 'Cargando Modelos de IA...';
+    status.innerText = 'Cargando Modelo Facial de IA...';
     try {
         await loadModels();
-        status.innerText = 'Modelos Listos. Iniciando Cámara...';
+        status.innerText = 'Modelo Listo. Iniciando Cámara...';
         await setupCamera();
-        status.innerText = 'Sistema on line de reconocimiento de celulares y dispositivos móviles';
+        status.innerText = 'Sistema on line de reconocimiento de rostros en tiempo real';
         status.style.color = '#2dd4bf';
         detect();
     } catch (err) {
